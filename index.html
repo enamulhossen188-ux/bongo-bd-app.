@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bangla TRX Natok</title>
+    <title>Bongo BD</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -170,7 +170,7 @@
             position: relative;
             width: 100%;
             padding-top: 56.25%;
-            background: #000;
+            background: #181920;
         }
 
         .thumb-img {
@@ -274,7 +274,7 @@
             border-radius: 12px;
             position: relative;
             z-index: 1;
-            background: #000;
+            background: #181920;
         }
 
         .detail-title-card {
@@ -513,14 +513,14 @@
 <body>
 
     <div class="header">
-        <h1><i class="fa-solid fa-circle-play"></i> Bangla TRX Natok</h1>
+        <h1><i class="fa-solid fa-circle-play"></i> Bongo BD</h1>
         <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn"><i class="fa-solid fa-moon"></i> Dark</button>
     </div>
 
     <div id="mainView">
         <div class="search-container">
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" id="searchInput" class="search-input" placeholder="নাটকের নাম বা পর্ব খুঁজুন..." oninput="handleSearch()">
+            <input type="text" id="searchInput" class="search-input" placeholder="ভিডিও বা পর্ব খুঁজুন..." oninput="handleSearch()">
         </div>
 
         <div class="category-scroll" id="categoryTabs"></div>
@@ -534,7 +534,7 @@
         <div class="detail-card">
             
             <div class="rotating-border-box">
-                <img id="detailThumb" src="" alt="Thumbnail">
+                <img id="detailThumb" src="" alt="Thumbnail" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Bongo+BD';">
             </div>
 
             <div class="detail-title-card">
@@ -594,7 +594,7 @@
 
     <script>
         const BOT_USERNAME = "BongoBd_ott_Bot";
-const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
+        const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
         let appData = { videos: [], ads: {} };
@@ -608,19 +608,24 @@ const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         let countdownTimer = null;
 
         function resolveThumb(url) {
-            if (!url) return 'https://placehold.co/640x360?text=No+Thumbnail';
+            if (!url || url.trim() === "" || url === "None") {
+                return 'https://placehold.co/640x360?text=Bongo+BD';
+            }
             let u = url.trim();
+            if (u.startsWith("http://")) {
+                u = u.replace("http://", "https://");
+            }
             if (u.includes("api.telegram.org")) {
-                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}`;
+                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}&default=https://placehold.co/640x360?text=Bongo+BD`;
             }
             return u;
         }
 
         async function initData() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/data?t=${Date.now()}`, {
+                const res = await fetch(`${SERVER_URL}/api/data?t=${Date.now()}_${Math.random()}`, {
                     cache: 'no-store',
-                    headers: { 'Cache-Control': 'no-cache' }
+                    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
                 });
                 appData = await res.json();
                 
@@ -677,7 +682,7 @@ const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
 
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Thumbnail';">
+                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Bongo+BD';">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
