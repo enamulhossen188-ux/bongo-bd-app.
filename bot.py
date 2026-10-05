@@ -9,7 +9,6 @@ import time
 import requests
 from datetime import datetime
 
-# আপনার টোকেন ও আইডি
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 
@@ -17,7 +16,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 CORS(app)
 
-# JSONBin কনফিগারেশন (আপনার নতুন BIN_ID)
 BIN_ID = "6ac369b7ac6210605a14defb"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
@@ -27,7 +25,6 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# --- ইন-মেমোরি ক্যাশ ---
 cached_data = None
 last_cache_time = 0
 CACHE_DURATION = 600
@@ -71,40 +68,26 @@ def save_data(data):
     except Exception as e:
         print("JSONBin Save Error:", e)
 
-# থাম্বনেইল পার্মানেন্ট ফ্রি হোস্টিংয়ে পাঠানোর ফাংশন
 def upload_thumb_securely(photo_id):
     try:
         file_info = bot.get_file(photo_id)
         downloaded = bot.download_file(file_info.file_path)
-        
-        # নির্ভরযোগ্য Catbox হোস্টিংয়ে পাঠানো
         res = requests.post(
             "https://catbox.moe/user/api.php",
             data={"reqtype": "fileupload"},
             files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=25
+            timeout=20
         )
         if res.status_code == 200 and res.text.strip().startswith("http"):
             return res.text.strip()
     except Exception as e:
         print("Upload Error:", e)
 
-    # Catbox না হলে বিকল্প নির্ভরযোগ্য ইমেজ হোস্ট
     try:
         file_info = bot.get_file(photo_id)
-        downloaded = bot.download_file(file_info.file_path)
-        res2 = requests.post(
-            "https://litterbox.catbox.moe/resources/internals/api.php",
-            data={"reqtype": "fileupload", "time": "72h"},
-            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=25
-        )
-        if res2.status_code == 200 and res2.text.strip().startswith("http"):
-            return res2.text.strip()
-    except Exception as e2:
-        print("Fallback Upload Error:", e2)
-
-    return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+    except Exception:
+        return ""
 
 @app.route('/api/data', methods=['GET'])
 def get_app_data():
@@ -402,7 +385,7 @@ def handle_admin_inputs(message):
 
     elif message.text == "📢 Add Coming Soon":
         admin_state[chat_id] = {'step': 'cs_title', 'category': 'COMING SOON', 'is_coming_soon': True}
-        bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন (যেমন: Bachelor Point Season 5 Ep 121-128):**", reply_markup=types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
         return
 
     elif message.text == "🔕 Delete Video":
@@ -441,7 +424,7 @@ def handle_admin_inputs(message):
         current_up = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
         bot.send_message(
             chat_id, 
-            f"🔔 **বর্তমানে সেভ করা ভিডিও আপডেট:**\n`{current_up}`\n\nইউজাররা যখন 'VIDEO UPDATE' বাটনে চাপ দিবে তখন কত থেকে কত পর্ব এসেছে বা কী মেসেজ দেখাবে তা লিখে পাঠান:\n(যেমন: 'ব্যাচেলর পয়েন্ট পর্ব ১০১ থেকে ১২০ আপলোড হয়েছে!')\n(বাতিল করতে /cancel লিখুন)",
+            f"🔔 **বর্তমানে সেভ করা ভিডিও আপডেট:**\n`{current_up}`\n\nইউজাররা যখন 'VIDEO UPDATE' বাটনে চাপ দিবে তখন কী মেসেজ দেখাবে তা লিখে পাঠান:\n(বাতিল করতে /cancel লিখুন)",
             parse_mode="Markdown",
             reply_markup=types.ReplyKeyboardRemove()
         )
@@ -530,7 +513,7 @@ def handle_admin_inputs(message):
     elif step == 'cs_title' and message.text:
         admin_state[chat_id]['title'] = message.text.strip()
         admin_state[chat_id]['step'] = 'cs_notice'
-        bot.send_message(chat_id, "📝 **পপ-আপে কী নোটিশ শো করবে তা লিখে দিন (যেমন: 'পর্ব ১২১ থেকে ১২৮ আসবে ২০ অক্টোবরের ভেতর...'):**")
+        bot.send_message(chat_id, "📝 **পপ-আপে কী নোটিশ শো করবে তা লিখে দিন:**")
 
     elif step == 'cs_notice' and message.text:
         admin_state[chat_id]['notice'] = message.text.strip()
