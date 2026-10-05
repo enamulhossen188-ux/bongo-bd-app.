@@ -9,6 +9,7 @@ import time
 import requests
 from datetime import datetime
 
+# আপনার নতুন টোকেন ও আইডি
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 
@@ -16,6 +17,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 CORS(app)
 
+# JSONBin কনফিগারেশন
 BIN_ID = "6abbadacac6210605a01bb77"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
@@ -25,6 +27,7 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+# --- ইন-মেমোরি ক্যাশ ---
 cached_data = None
 last_cache_time = 0
 CACHE_DURATION = 600
@@ -102,25 +105,53 @@ def get_admin_keyboard():
     markup.add(b1, b2, b3, b4, b5, b6, b7, b8)
     return markup
 
-def get_delete_keyboard(page=0):
+# ভিডিওর নাম সংক্ষেপ ও পরিষ্কার করার ফাংশন (যাতে বাটনে স্পষ্ট দেখা যায়)
+def format_button_label(video):
+    title = video.get('title', 'Video').strip()
+    is_cs = video.get("is_coming_soon") or video.get("category") == "COMING SOON"
+
+    if is_cs:
+        return f"🗑️ [📢 CS] {title[:25]}"
+
+    # যদি bachelor point লেখা থাকে তবে সংক্ষেপে [BP Ep ...] বানিয়ে দেব
+    lower_t = title.lower()
+    if "bachelor point" in lower_t:
+        clean = title
+        for phrase in ["bachelor point", "season 5", "season-5", "s5", "episode", "ep"]:
+            clean = clean.replace(phrase, "").replace("[", "").replace("]", "").strip()
+        ep_no = "".join([c for c in clean if c.isdigit() or c in ['-', ' ']]).strip()
+        if ep_no:
+            return f"🗑️ BP S5 - Ep {ep_no}"
+
+    # সাধারণ ক্ষেত্রে ৩০ অক্ষরের ভেতর সুন্দর করে প্রদর্শন
+    if len(title) > 30:
+        return f"🗑️ {title[:28]}.."
+    return f"🗑️ {title}"
+
+def get_delete_view_data(page=0):
     data = load_data()
     videos = data.get("videos", [])
     if not videos:
-        return None
+        return None, None
 
-    markup = types.InlineKeyboardMarkup()
     per_page = 8
     start_idx = page * per_page
     end_idx = start_idx + per_page
     current_videos = videos[start_idx:end_idx]
 
-    for v in current_videos:
+    text_msg = f"🗑️ **ডিলিট মেনু (পেজ: {page+1}/{(len(videos)+per_page-1)//per_page}):**\n"
+    text_msg += "নিচে পুরো নাম দেখে বাটনে চাপ দিয়ে ডিলিট করুন:\n\n"
+
+    markup = types.InlineKeyboardMarkup()
+
+    for idx, v in enumerate(current_videos, start=start_idx + 1):
         is_cs = v.get("is_coming_soon") or v.get("category") == "COMING SOON"
-        tag = "[📢 CS] " if is_cs else ""
-        title_text = f"❌ {tag}{v.get('title', 'Video')}"
-        if len(title_text) > 35:
-            title_text = title_text[:32] + "..."
-        markup.add(types.InlineKeyboardButton(title_text, callback_data=f"delvid_{v.get('id')}_{page}"))
+        tag = " [📢 COMING SOON]" if is_cs else ""
+        text_msg += f"**{idx}.** {v.get('title')}{tag}\n"
+
+        # বাটনের টেক্সট তৈরি
+        btn_label = f"{idx}. {format_button_label(v)}"
+        markup.add(types.InlineKeyboardButton(btn_label, callback_data=f"delvid_{v.get('id')}_{page}"))
 
     nav_buttons = []
     if page > 0:
@@ -132,7 +163,7 @@ def get_delete_keyboard(page=0):
         markup.row(*nav_buttons)
 
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
-    return markup
+    return text_msg, markup
 
 def get_category_keyboard():
     data = load_data()
@@ -276,9 +307,9 @@ def handle_callbacks(call):
 
     if call.data.startswith("delpage_"):
         page = int(call.data.split("_")[1])
-        kb = get_delete_keyboard(page)
+        txt, kb = get_delete_view_data(page)
         if kb:
-            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=kb)
+            bot.edit_message_text(txt, chat_id, call.message.message_id, reply_markup=kb, parse_mode="Markdown")
         bot.answer_callback_query(call.id)
         return
 
@@ -294,9 +325,9 @@ def handle_callbacks(call):
         save_data(data)
 
         bot.answer_callback_query(call.id, "✅ সফলভাবে ডিলিট করা হয়েছে!", show_alert=True)
-        kb = get_delete_keyboard(page)
+        txt, kb = get_delete_view_data(page)
         if kb:
-            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=kb)
+            bot.edit_message_text(txt, chat_id, call.message.message_id, reply_markup=kb, parse_mode="Markdown")
         else:
             bot.edit_message_text("❌ আর কোনো ভিডিও বা পোস্ট নেই!", chat_id, call.message.message_id)
         return
@@ -341,16 +372,13 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন (যেমন: Bachelor Point Season 5 Ep 121-128):**", reply_markup=types.ReplyKeyboardRemove())
         return
 
+    # টাইটেল ও নম্বর দেখে ডিলিট করার বাটন মেনু
     elif message.text == "🔕 Delete Video":
-        kb = get_delete_keyboard(0)
+        txt, kb = get_delete_view_data(0)
         if not kb:
             bot.send_message(chat_id, "❌ কোনো ভিডিও বা কামিং সুন পোস্ট পাওয়া যায়নি!", reply_markup=get_admin_keyboard())
             return
-        bot.send_message(
-            chat_id, 
-            "🗑️️ **যে ভিডিও বা কামিং সুন পোস্টটি ডিলিট করতে চান তার বাটনে চাপ দিন:**", 
-            reply_markup=kb
-        )
+        bot.send_message(chat_id, txt, reply_markup=kb, parse_mode="Markdown")
         return
 
     elif message.text == "📊 Total Users":
