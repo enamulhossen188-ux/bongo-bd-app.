@@ -228,6 +228,7 @@ def handle_admin_inputs(message):
     chat_id = message.chat.id 
     if str(chat_id) != str(ADMIN_ID): return
 
+    # ১. Add Video
     if message.text == "➕ Add Video":
         admin_state[chat_id] = {'step': 'category'}
         data = load_data()
@@ -238,13 +239,13 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📁 **ভিডিওর ক্যাটাগরি বেছে নিন:**", reply_markup=markup)
         return
 
-    # কামিং সুন পোস্ট অ্যাড করার অপশন
+    # ২. Add Coming Soon
     elif message.text == "📢 Add Coming Soon":
         admin_state[chat_id] = {'step': 'cs_title', 'category': 'COMING SOON', 'is_coming_soon': True}
         bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন (যেমন: Bachelor Point Season 5 Ep 121-128):**", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # ভিডিও ডিলিট করার বাটন হ্যান্ডলার
+    # ৩. Delete Video
     elif message.text == "🔕 Delete Video":
         data = load_data()
         videos = data.get("videos", [])
@@ -259,7 +260,12 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, msg_txt, parse_mode="Markdown", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # ক্যাটাগরি সেট করার বাটন হ্যান্ডলার
+    # ৪. Total Users
+    elif message.text == "📊 Total Users":
+        show_total_users(message)
+        return
+
+    # ৫. Set Category
     elif message.text == "📁 Set Category":
         admin_state[chat_id] = {'step': 'set_category'}
         data = load_data()
@@ -272,31 +278,32 @@ def handle_admin_inputs(message):
         )
         return
 
-    # এড লিংক সেট করার বাটন হ্যান্ডলার
+    # ৬. Set Ads Link
     elif message.text == "🎯 Set Ads Link":
         admin_state[chat_id] = {'step': 'ad_1'}
         bot.send_message(chat_id, "🎯 **Task 1 এর এড লিংক (URL) পাঠান:**\n(বাতিল করতে /cancel লিখুন)", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # নোটিশ ব্রডকাস্ট বাটন হ্যান্ডলার
-    elif message.text == "📢 BOT NOTICE":
-        admin_state[chat_id] = {'step': 'notice_msg'}
-        bot.send_message(chat_id, "📢 **সব ইউজারের কাছে পাঠানোর জন্য নোটিশ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", reply_markup=types.ReplyKeyboardRemove())
-        return
-
-    elif message.text == "📊 Total Users":
-        show_total_users(message)
-        return
-
+    # ৭. Set Welcome Video
     elif message.text == "🎥 Set Welcome Video":
         admin_state[chat_id] = {'step': 'welcome_video'}
         bot.send_message(chat_id, "🎥 **স্টার্টের সময় যে ভিডিওটি শো করবে সেটি পাঠান:**")
         return
 
+    # ৮. BOT NOTICE (ইমেজ + WATCH NOW বাটন)
+    elif message.text == "📢 BOT NOTICE":
+        admin_state[chat_id] = {'step': 'notice_input'}
+        bot.send_message(
+            chat_id, 
+            "🖼️ **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        return
+
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    # Delete Video সম্পন্ন করা
+    # Delete Video প্রসেস
     if step == 'delete_video' and message.text:
         del_id = message.text.strip()
         data = load_data()
@@ -310,7 +317,7 @@ def handle_admin_inputs(message):
         else:
             bot.send_message(chat_id, "❌ এই ID-র ভিডিও খুঁজে পাওয়া যায়নি। সঠিক ID দিন বা /cancel লিখুন:")
 
-    # Set Category সম্পন্ন করা
+    # Set Category প্রসেস
     elif step == 'set_category' and message.text:
         new_cats = [c.strip() for c in message.text.split(",") if c.strip()]
         if new_cats:
@@ -322,7 +329,7 @@ def handle_admin_inputs(message):
         else:
             bot.send_message(chat_id, "❌ সঠিক ফরম্যাটে ক্যাটাগরি নাম লিখুন।")
 
-    # Set Ads Link সম্পন্ন করা
+    # Set Ads Link প্রসেস
     elif step == 'ad_1' and message.text:
         admin_state[chat_id]['ad1'] = message.text.strip()
         admin_state[chat_id]['step'] = 'ad_2'
@@ -338,18 +345,32 @@ def handle_admin_inputs(message):
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **বিজ্ঞাপনের লিংক দুটি আপডেট হয়েছে!**", reply_markup=get_admin_keyboard())
 
-    # BOT NOTICE ব্রডকাস্ট সম্পন্ন করা
-    elif step == 'notice_msg' and message.text:
-        notice = message.text.strip()
+    # BOT NOTICE ব্রডকাস্ট (ইমেজ + ক্যাপশন + WATCH NOW বাটন)
+    elif step == 'notice_input' and (message.photo or message.text):
         data = load_data()
         user_list = data.get("users", [])
-        bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো হচ্ছে...**", reply_markup=get_admin_keyboard())
+        bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো শুরু হয়েছে...**", reply_markup=get_admin_keyboard())
         del admin_state[chat_id]
-        
+
+        fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
+        notice_markup = types.InlineKeyboardMarkup()
+        btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
+        notice_markup.add(btn_watch)
+
+        is_photo = bool(message.photo)
+        photo_id = message.photo[-1].file_id if is_photo else None
+        caption_text = message.caption or (message.text if not is_photo else "")
+
         sent = 0
         for uid in user_list:
             try:
-                bot.send_message(uid, f"📢 **নোটিশ:**\n\n{notice}")
+                if is_photo:
+                    if caption_text:
+                        bot.send_photo(uid, photo_id, caption=caption_text, reply_markup=notice_markup)
+                    else:
+                        bot.send_photo(uid, photo_id, reply_markup=notice_markup)
+                else:
+                    bot.send_message(uid, f"📢 **নোটিশ:**\n\n{caption_text}", reply_markup=notice_markup, parse_mode="Markdown")
                 sent += 1
                 time.sleep(0.04)
             except Exception:
