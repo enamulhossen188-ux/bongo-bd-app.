@@ -507,7 +507,7 @@
         <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <div class="detail-card">
             <div class="detail-thumb-box">
-                <img id="detailThumb" src="" alt="Thumbnail">
+                <img id="detailThumb" src="" alt="Thumbnail" onerror="this.onerror=null;this.src='https://placehold.co/600x338/181920/ef4444?text=No+Thumbnail';">
             </div>
 
             <div class="detail-title-card">
@@ -590,9 +590,9 @@
         function resolveThumb(url) {
             if (!url) return '';
             let u = url.trim();
-            // টেলিগ্রাম ডিরেক্ট লিংক হলে প্রক্সির মাধ্যমে বাইপাস করা
-            if (u.includes("api.telegram.org")) {
-                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}`;
+            // টেলিগ্রাম বা অন্যান্য ব্রাউজার ব্লকিং এড়াতে নির্ভরযোগ্য weserv প্রক্সি
+            if (u.includes("api.telegram.org") || u.includes("telegram")) {
+                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}&default=https://placehold.co/600x338/181920/ef4444?text=Bongo+BD`;
             }
             return u;
         }
@@ -705,7 +705,7 @@
 
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb">
+                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/600x338/181920/ef4444?text=Bongo+BD';">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
@@ -928,4 +928,4 @@
         initData();
     </script>
 </body>
-    </html>
+                            </html>
