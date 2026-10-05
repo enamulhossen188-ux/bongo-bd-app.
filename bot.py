@@ -8,8 +8,9 @@ import os
 import time
 import requests
 from datetime import datetime
+import urllib.parse
 
-# ১ম বটের নিজস্ব টোকেন ও লিংক কনফিগারেশন
+# ২য় বটের নিজস্ব টোকেন ও লিংক কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://enamulhossen188-ux.github.io/bongo-bd-app/"
@@ -18,7 +19,7 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-# ১ম বটের নিজস্ব ক্লাউড ডাটাবেজ
+# ২য় বটের নিজস্ব ক্লাউড ডাটাবেজ
 BIN_ID = "6ac369b7ac6210605a14defb"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
@@ -30,32 +31,29 @@ HEADERS = {
 
 cached_data = None
 last_cache_time = 0
-CACHE_DURATION = 600
+CACHE_DURATION = 0  # ক্যাশ অফ রাখা হলো যেন প্রতিবার লাইভ ডাটা লোড হয়
 
 admin_state = {}
 
-def load_data(force_refresh=False):
+def load_data(force_refresh=True):
     global cached_data, last_cache_time
-    current_time = time.time()
-
-    if not force_refresh and cached_data and (current_time - last_cache_time < CACHE_DURATION):
-        return cached_data
-
     try:
         r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=10)
         if r.status_code == 200:
             cached_data = r.json().get("record", {})
-            last_cache_time = current_time
+            last_cache_time = time.time()
             return cached_data
+        else:
+            print("JSONBin Read Error Status:", r.status_code)
     except Exception as e:
-        print("JSONBin Read Error:", e)
+        print("JSONBin Read Exception:", e)
 
     if cached_data:
         return cached_data
 
     return {
         "users": [],
-        "categories": ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"],
+        "categories": ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"],
         "ads": {"ad1": "https://google.com", "ad2": "https://google.com"},
         "welcome_video": "",
         "update_notice": "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!",
@@ -67,11 +65,16 @@ def save_data(data):
     cached_data = data
     last_cache_time = time.time()
     try:
-        requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
+        r = requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
+        if r.status_code != 200:
+            print(f"JSONBin Save Failed! Code: {r.status_code}, Body: {r.text}")
+        else:
+            print("JSONBin Save Success!")
     except Exception as e:
         print("JSONBin Save Error:", e)
 
 def upload_thumb_securely(photo_id):
+    # Catbox দিয়ে ট্রাই করা
     try:
         file_info = bot.get_file(photo_id)
         downloaded = bot.download_file(file_info.file_path)
@@ -79,32 +82,36 @@ def upload_thumb_securely(photo_id):
             "https://catbox.moe/user/api.php",
             data={"reqtype": "fileupload"},
             files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=20
+            timeout=15
         )
         if res.status_code == 200 and res.text.strip().startswith("http"):
             return res.text.strip()
     except Exception as e:
-        print("Upload Error:", e)
+        print("Catbox Upload Error:", e)
 
+    # ব্যাকআপ হিসেবে ইমেজ প্রক্সি ব্যবহার (যা টেলিগ্রামের কালো থাম্বনেইল বন্ধ করবে)
     try:
         file_info = bot.get_file(photo_id)
-        return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
-    except Exception:
-        return ""
+        tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        encoded_url = urllib.parse.quote(tg_url, safe='')
+        return f"https://images.weserv.nl/?url={encoded_url}&default=https://placehold.co/640x360?text=Thumbnail"
+    except Exception as e:
+        print("Fallback Thumb Error:", e)
+        return "https://placehold.co/640x360?text=Bongo+BD"
 
-@app.route('/api/data', methods=['GET'])
+@app.route('/api/data', methods=['GET', 'OPTIONS'])
 def get_app_data():
-    data = load_data()
+    data = load_data(force_refresh=True)
     resp = make_response(jsonify(data))
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control'
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
 
 @app.route('/')
 def home():
-    return "Bot Server Live 24/7!"
+    return "Bongo BD Server Live 24/7!"
 
 def get_action_buttons():
     fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
@@ -150,7 +157,7 @@ def format_button_label(video):
     return f"🗑️ {title}"
 
 def get_delete_view_data(page=0):
-    data = load_data()
+    data = load_data(force_refresh=True)
     videos = data.get("videos", [])
     if not videos:
         return None, None
@@ -183,8 +190,8 @@ def get_delete_view_data(page=0):
     return text_msg, markup
 
 def get_category_keyboard():
-    data = load_data()
-    cats = data.get("categories", ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"])
+    data = load_data(force_refresh=True)
+    cats = data.get("categories", ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"])
     markup = types.InlineKeyboardMarkup()
 
     for c in cats:
@@ -198,7 +205,7 @@ def get_category_keyboard():
 def handle_bot_blocked_or_unblocked(update: types.ChatMemberUpdated):
     user_id = update.chat.id
     new_status = update.new_chat_member.status
-    data = load_data()
+    data = load_data(force_refresh=True)
     users = data.get("users", [])
 
     if new_status in ["kicked", "left"]:
@@ -236,7 +243,7 @@ def cancel_process(message):
 @bot.message_handler(commands=['users', 'stats'])
 def show_total_users(message):
     if str(message.chat.id) != str(ADMIN_ID): return
-    data = load_data()
+    data = load_data(force_refresh=True)
     user_list = data.get("users", [])
     active_users = []
     removed_any = False
@@ -263,7 +270,7 @@ def show_total_users(message):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    data = load_data()
+    data = load_data(force_refresh=True)
     user_id = message.chat.id
     if "users" not in data: data["users"] = []
     if user_id not in data["users"]:
@@ -307,7 +314,7 @@ def handle_callbacks(call):
     
     if call.data == "btn_update":
         bot.answer_callback_query(call.id)
-        data = load_data()
+        data = load_data(force_refresh=True)
         notice_text = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
         bot.send_message(chat_id, f"📢 **ভিডিও আপডেট:**\n\n{notice_text}")
         return
@@ -380,8 +387,8 @@ def handle_admin_inputs(message):
 
     if message.text == "➕ Add Video":
         admin_state[chat_id] = {'step': 'category'}
-        data = load_data()
-        cats = data.get("categories", ["BPS5", "MOVIES", "DRAMA", "SERIES"])
+        data = load_data(force_refresh=True)
+        cats = data.get("categories", ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"])
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         for i in range(0, len(cats), 2):
             markup.row(*[types.KeyboardButton(c) for c in cats[i:i+2]])
@@ -425,7 +432,7 @@ def handle_admin_inputs(message):
 
     elif message.text == "🔔 Set Video Update":
         admin_state[chat_id] = {'step': 'set_video_update'}
-        data = load_data()
+        data = load_data(force_refresh=True)
         current_up = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
         bot.send_message(
             chat_id, 
@@ -485,7 +492,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "✅ **বিজ্ঞাপনের লিংক দুটি আপডেট হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'notice_input' and (message.photo or message.text):
-        data = load_data()
+        data = load_data(force_refresh=True)
         user_list = data.get("users", [])
         bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো শুরু হয়েছে...**", reply_markup=get_admin_keyboard())
         del admin_state[chat_id]
@@ -534,7 +541,7 @@ def handle_admin_inputs(message):
 
         data = load_data(force_refresh=True)
         new_item = {
-            "id": len(data.get('videos', [])) + 1,
+            "id": int(time.time()),
             "category": "COMING SOON",
             "is_coming_soon": True,
             "title": admin_state[chat_id]['title'],
@@ -573,7 +580,7 @@ def handle_admin_inputs(message):
         file_id = message.video.file_id if message.video else message.document.file_id
         data = load_data(force_refresh=True)
         new_video = {
-            "id": len(data.get('videos', [])) + 1,
+            "id": int(time.time()),
             "category": admin_state[chat_id]['category'],
             "title": admin_state[chat_id]['title'],
             "thumb": admin_state[chat_id]['thumb'],
