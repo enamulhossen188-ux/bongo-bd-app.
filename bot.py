@@ -114,14 +114,6 @@ def get_action_buttons():
     markup.add(btn_watch, btn_update, btn_help)
     return markup
 
-# ২. চ্যাটবক্সের কিবোর্ড বাটন (হুবহু একই লেখা ও লিংক)
-def get_user_menu_keyboard():
-    fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_watch = types.KeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
-    markup.add(btn_watch)
-    return markup
-
 def get_admin_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     b1 = types.KeyboardButton("➕ Add Video")
@@ -195,7 +187,7 @@ def get_category_keyboard():
     markup = types.InlineKeyboardMarkup()
 
     for c in cats:
-        markup.add(types.InlineKeyboardButton(f"🗑️ Delete: {c}", callback_data=f"delcat_{c}"))
+        markup.add(types.InlineKeyboardButton(f"🗑️️ Delete: {c}", callback_data=f"delcat_{c}"))
 
     markup.add(types.InlineKeyboardButton("➕ Add New Category", callback_data="add_new_category"))
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
@@ -236,9 +228,9 @@ def cancel_process(message):
     chat_id = message.chat.id
     if chat_id in admin_state:
         del admin_state[chat_id]
-        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_user_menu_keyboard())
+        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
     else:
-        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_user_menu_keyboard())
+        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=['users', 'stats'])
 def show_total_users(message):
@@ -303,8 +295,11 @@ def send_welcome(message):
     else:
         bot.send_message(message.chat.id, welcome_caption, reply_markup=markup, parse_mode="Markdown")
 
-    # সবার জন্য নিচে কিবোর্ড বাটন শো করা
-    bot.send_message(message.chat.id, "👇 নিচের বাটন থেকেও সরাসরি দেখতে পারেন:", reply_markup=get_user_menu_keyboard())
+    # অতিরিক্ত কিবোর্ড বাটন বাদ দিয়ে শুধু অ্যাডমিন বাটন রাখা হলো
+    if str(user_id) == str(ADMIN_ID):
+        bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
+    else:
+        bot.send_message(message.chat.id, "নাটক দেখতে উপরের 🎬 WATCH NOW বাটনে ক্লিক করুন।", reply_markup=types.ReplyKeyboardRemove())
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -444,7 +439,7 @@ def handle_admin_inputs(message):
         admin_state[chat_id] = {'step': 'notice_input'}
         bot.send_message(
             chat_id, 
-            "🖼️️ **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
+            "🖼 **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
             reply_markup=types.ReplyKeyboardRemove()
         )
         return
