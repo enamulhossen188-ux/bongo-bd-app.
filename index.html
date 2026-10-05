@@ -228,7 +228,10 @@
             aspect-ratio: 16 / 9;
             border-radius: 12px;
             overflow: hidden;
-            background: #000;
+            background: #1e2029;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .thumb-img {
@@ -309,6 +312,7 @@
             overflow: hidden;
             box-shadow: 0 0 14px var(--card-glow);
             margin-bottom: 14px;
+            background: #1e2029;
         }
 
         #detailThumb {
@@ -504,7 +508,7 @@
         <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <div class="detail-card">
             <div class="detail-thumb-box">
-                <img id="detailThumb" src="" alt="Thumbnail">
+                <img id="detailThumb" src="" alt="Thumbnail" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';">
             </div>
 
             <div class="detail-title-card">
@@ -583,6 +587,16 @@
         let activeTask = null;
         let taskStartTime = 0;
         let countdownTimer = null;
+
+        function sanitizeThumbUrl(url) {
+            if (!url) return 'https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';
+            let clean = url.trim();
+            // টেলিগ্রামের সরাসরি এপিআই লিংক ব্রাউজার ব্লক করলে ইমেজ প্রক্সির মাধ্যমে রেন্ডার করানো
+            if (clean.includes("api.telegram.org/file/")) {
+                return `https://images.weserv.nl/?url=${encodeURIComponent(clean)}`;
+            }
+            return clean;
+        }
 
         function openSidebar() {
             document.getElementById("sidebarOverlay").style.display = "block";
@@ -684,9 +698,10 @@
                     const card = document.createElement("div");
                     card.className = "video-card";
                     card.onclick = () => handleVideoClick(item);
+                    const safeThumb = sanitizeThumbUrl(item.thumb);
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${item.thumb || 'https://via.placeholder.com/640x360?text=Natok'}" alt="Thumb">
+                            <img class="thumb-img" src="${safeThumb}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';" alt="Thumb">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
@@ -744,7 +759,7 @@
             document.getElementById("mainView").style.display = "none";
             document.getElementById("detailView").style.display = "block";
 
-            document.getElementById("detailThumb").src = video.thumb || 'https://via.placeholder.com/640x360';
+            document.getElementById("detailThumb").src = sanitizeThumbUrl(video.thumb);
             document.getElementById("detailTitle").innerText = video.title;
 
             resetTasks();
@@ -909,4 +924,4 @@
         initData();
     </script>
 </body>
-        </html>
+    </html>
