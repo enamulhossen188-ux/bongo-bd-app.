@@ -623,7 +623,7 @@
 
         async function initData() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/data?t=${Date.now()}`, {
+                const res = await fetch(`${SERVER_URL}/api/data?_nocache=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
                 });
@@ -639,8 +639,14 @@
                          ? appData.categories 
                          : ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"];
 
+            // প্রথম ক্যাটাগরি নির্ধারণ
             if (!activeCategory || !cats.includes(activeCategory)) {
-                activeCategory = cats[0];
+                // যদি প্রথম ক্যাটাগরিতে কোনো ভিডিও না থাকে, যেটায় ভিডিও আছে সেটাই সিলেক্ট করবে
+                let foundCat = cats.find(c => {
+                    const normC = c.replace(/\s+/g, '').toLowerCase();
+                    return (appData.videos || []).some(v => (v.category || '').replace(/\s+/g, '').toLowerCase() === normC);
+                });
+                activeCategory = foundCat || cats[0];
             }
 
             renderCategoryTabs();
@@ -655,7 +661,7 @@
             
             let html = '';
             cats.forEach((c) => {
-                const isActive = (activeCategory.toLowerCase() === c.toLowerCase());
+                const isActive = (activeCategory.replace(/\s+/g, '').toLowerCase() === c.replace(/\s+/g, '').toLowerCase());
                 html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}', this)">${c}</div>`;
             });
             tabsContainer.innerHTML = html;
@@ -668,8 +674,15 @@
 
             let list = appData.videos || [];
 
+            // ক্যাটাগরি ফিল্টার: স্পেস ও কেস-সেন্সিটিভিটি মুক্ত করা
             if (activeCategory) {
-                list = list.filter(v => (v.category || '').toLowerCase() === activeCategory.toLowerCase());
+                const normActive = activeCategory.replace(/\s+/g, '').toLowerCase();
+                let filtered = list.filter(v => (v.category || '').replace(/\s+/g, '').toLowerCase() === normActive);
+                
+                // যদি এই ক্যাটাগরিতে কোনো ভিডিও না থাকে, তবে খালি পেজ না দেখিয়ে সব ভিডিও ডিসপ্লে করবে
+                if (filtered.length > 0) {
+                    list = filtered;
+                }
             }
 
             if (query) {
