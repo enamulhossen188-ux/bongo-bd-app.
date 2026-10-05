@@ -597,7 +597,7 @@
         const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
-        let appData = { videos: [], ads: {} };
+        let appData = { videos: [], categories: [], ads: {} };
         let activeCategory = '';
         let currentSelectedVideo = null;
 
@@ -623,27 +623,35 @@
 
         async function initData() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/data?t=${Date.now()}_${Math.random()}`, {
+                const res = await fetch(`${SERVER_URL}/api/data?t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
                 });
-                appData = await res.json();
                 
-                const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
-                if (cats.length > 0) {
-                    activeCategory = cats[0];
+                if (res.ok) {
+                    appData = await res.json();
                 }
-                
-                renderCategoryTabs();
-                renderVideos();
             } catch (err) {
                 console.error("ডাটা লোড ত্রুটি:", err);
             }
+
+            const cats = (appData.categories && appData.categories.length > 0) 
+                         ? appData.categories 
+                         : ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"];
+
+            if (!activeCategory || !cats.includes(activeCategory)) {
+                activeCategory = cats[0];
+            }
+
+            renderCategoryTabs();
+            renderVideos();
         }
 
         function renderCategoryTabs() {
             const tabsContainer = document.getElementById("categoryTabs");
-            const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
+            const cats = (appData.categories && appData.categories.length > 0) 
+                         ? appData.categories 
+                         : ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"];
             
             let html = '';
             cats.forEach((c) => {
@@ -704,7 +712,7 @@
         function filterCategory(cat, el) {
             activeCategory = cat;
             document.querySelectorAll(".category-chip").forEach(c => c.classList.remove("active"));
-            el.classList.add("active");
+            if (el) el.classList.add("active");
             renderVideos();
         }
 
