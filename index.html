@@ -228,10 +228,8 @@
             aspect-ratio: 16 / 9;
             border-radius: 12px;
             overflow: hidden;
-            background: #1e2029;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: #181920;
+            position: relative;
         }
 
         .thumb-img {
@@ -312,12 +310,13 @@
             overflow: hidden;
             box-shadow: 0 0 14px var(--card-glow);
             margin-bottom: 14px;
-            background: #1e2029;
+            aspect-ratio: 16 / 9;
+            background: #181920;
         }
 
         #detailThumb {
             width: 100%;
-            aspect-ratio: 16 / 9;
+            height: 100%;
             object-fit: cover;
             display: block;
         }
@@ -508,7 +507,7 @@
         <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <div class="detail-card">
             <div class="detail-thumb-box">
-                <img id="detailThumb" src="" alt="Thumbnail" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';">
+                <img id="detailThumb" src="" alt="Thumbnail">
             </div>
 
             <div class="detail-title-card">
@@ -588,14 +587,14 @@
         let taskStartTime = 0;
         let countdownTimer = null;
 
-        function sanitizeThumbUrl(url) {
-            if (!url) return 'https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';
-            let clean = url.trim();
-            // টেলিগ্রামের সরাসরি এপিআই লিংক ব্রাউজার ব্লক করলে ইমেজ প্রক্সির মাধ্যমে রেন্ডার করানো
-            if (clean.includes("api.telegram.org/file/")) {
-                return `https://images.weserv.nl/?url=${encodeURIComponent(clean)}`;
+        function resolveThumb(url) {
+            if (!url) return '';
+            let u = url.trim();
+            // টেলিগ্রাম ডিরেক্ট লিংক হলে প্রক্সির মাধ্যমে বাইপাস করা
+            if (u.includes("api.telegram.org")) {
+                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}`;
             }
-            return clean;
+            return u;
         }
 
         function openSidebar() {
@@ -698,10 +697,12 @@
                     const card = document.createElement("div");
                     card.className = "video-card";
                     card.onclick = () => handleVideoClick(item);
-                    const safeThumb = sanitizeThumbUrl(item.thumb);
+                    
+                    const thumbUrl = resolveThumb(item.thumb);
+
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${safeThumb}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578022761797-b8636ac1773c?w=640';" alt="Thumb">
+                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
@@ -759,7 +760,7 @@
             document.getElementById("mainView").style.display = "none";
             document.getElementById("detailView").style.display = "block";
 
-            document.getElementById("detailThumb").src = sanitizeThumbUrl(video.thumb);
+            document.getElementById("detailThumb").src = resolveThumb(video.thumb);
             document.getElementById("detailTitle").innerText = video.title;
 
             resetTasks();
@@ -924,4 +925,4 @@
         initData();
     </script>
 </body>
-    </html>
+                                                                           </html>
