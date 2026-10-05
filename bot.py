@@ -31,7 +31,7 @@ HEADERS = {
 
 cached_data = None
 last_cache_time = 0
-CACHE_DURATION = 0  # ক্যাশ অফ রাখা হলো যেন প্রতিবার লাইভ ডাটা লোড হয়
+CACHE_DURATION = 0  # ক্যাশ পুরোপুরি বন্ধ রাখা হলো যেন ডাটা তাৎক্ষণিক লোড হয়
 
 admin_state = {}
 
@@ -74,7 +74,6 @@ def save_data(data):
         print("JSONBin Save Error:", e)
 
 def upload_thumb_securely(photo_id):
-    # Catbox দিয়ে ট্রাই করা
     try:
         file_info = bot.get_file(photo_id)
         downloaded = bot.download_file(file_info.file_path)
@@ -89,7 +88,6 @@ def upload_thumb_securely(photo_id):
     except Exception as e:
         print("Catbox Upload Error:", e)
 
-    # ব্যাকআপ হিসেবে ইমেজ প্রক্সি ব্যবহার (যা টেলিগ্রামের কালো থাম্বনেইল বন্ধ করবে)
     try:
         file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
@@ -114,7 +112,8 @@ def home():
     return "Bongo BD Server Live 24/7!"
 
 def get_action_buttons():
-    fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
+    # ক্যাশ বাইপাসের জন্য ইউনিক ডাইনামিক ভার্সন প্যারামিটার
+    fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/?v={int(time.time())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
     btn_update = types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update")
@@ -497,7 +496,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো শুরু হয়েছে...**", reply_markup=get_admin_keyboard())
         del admin_state[chat_id]
 
-        fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
+        fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/?v={int(time.time())}"
         notice_markup = types.InlineKeyboardMarkup()
         btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
         notice_markup.add(btn_watch)
