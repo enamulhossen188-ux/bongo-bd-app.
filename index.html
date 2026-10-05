@@ -638,6 +638,9 @@
         }
 
         async function initData() {
+            // ১. আগে থেকেই ক্যাটাগরি রেন্ডার করে ফেলা যাতে স্ক্রিন ফাঁকা না থাকে
+            renderCategoryTabs();
+
             try {
                 const res = await fetch(`${SERVER_URL}/api/data?t=` + Date.now(), {
                     cache: 'no-store',
@@ -925,4 +928,4 @@
         initData();
     </script>
 </body>
-                </html>
+    </html>
