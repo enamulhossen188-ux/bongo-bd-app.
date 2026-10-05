@@ -1,6 +1,6 @@
 import telebot
 from telebot import types
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, send_file
 from flask_cors import CORS
 import threading
 import json
@@ -10,10 +10,10 @@ import requests
 from datetime import datetime
 import urllib.parse
 
-# ২য় বটের নিজস্ব টোকেন ও লিংক কনফিগারেশন
+# ২য় বটের নিজস্ব টোকেন ও Render সার্ভার কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
-APP_URL = "https://enamulhossen188-ux.github.io/bongo-bd-app/"
+APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
@@ -31,7 +31,7 @@ HEADERS = {
 
 cached_data = None
 last_cache_time = 0
-CACHE_DURATION = 0  # ক্যাশ পুরোপুরি বন্ধ রাখা হলো যেন ডাটা তাৎক্ষণিক লোড হয়
+CACHE_DURATION = 0
 
 admin_state = {}
 
@@ -109,11 +109,14 @@ def get_app_data():
 
 @app.route('/')
 def home():
+    if os.path.exists('index.html'):
+        resp = make_response(send_file('index.html'))
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
     return "Bongo BD Server Live 24/7!"
 
 def get_action_buttons():
-    # ক্যাশ বাইপাসের জন্য ইউনিক ডাইনামিক ভার্সন প্যারামিটার
-    fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/?v={int(time.time())}"
+    fresh_url = f"{APP_URL}?v={int(time.time())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
     btn_update = types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update")
@@ -153,7 +156,7 @@ def format_button_label(video):
 
     if len(title) > 30:
         return f"🗑️ {title[:28]}.."
-    return f"🗑️ {title}"
+    return f"🗑️️ {title}"
 
 def get_delete_view_data(page=0):
     data = load_data(force_refresh=True)
@@ -496,7 +499,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো শুরু হয়েছে...**", reply_markup=get_admin_keyboard())
         del admin_state[chat_id]
 
-        fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/?v={int(time.time())}"
+        fresh_url = f"{APP_URL}?v={int(time.time())}"
         notice_markup = types.InlineKeyboardMarkup()
         btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
         notice_markup.add(btn_watch)
