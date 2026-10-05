@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)
 
 # ২য় বটের নিজস্ব ক্লাউড ডাটাবেজ
-BIN_ID = "6ac369b7ac6210605a14defb"
+BIN_ID = "6ac43001ac6210605a17383a"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
 BIN_URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
