@@ -9,7 +9,6 @@ import time
 import requests
 from datetime import datetime
 
-# আপনার নতুন টোকেন ও আইডি
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 
@@ -17,7 +16,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 CORS(app)
 
-# JSONBin কনফিগারেশন
 BIN_ID = "6abbadacac6210605a01bb77"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
@@ -27,10 +25,9 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# --- ইন-মেমোরি ক্যাশ ---
 cached_data = None
 last_cache_time = 0
-CACHE_DURATION = 600  # ১০ মিনিট পর পর ডাটাবেজ আপডেট নেবে
+CACHE_DURATION = 600
 
 admin_state = {}
 
@@ -105,19 +102,17 @@ def get_admin_keyboard():
     markup.add(b1, b2, b3, b4, b5, b6, b7, b8)
     return markup
 
-# ভিডিও ডিলিট করার বাটন কিবোর্ড (পেজিনেশন সহ)
 def get_delete_keyboard(page=0):
     data = load_data()
     videos = data.get("videos", [])
+    if not videos:
+        return None
+
     markup = types.InlineKeyboardMarkup()
-    
     per_page = 8
     start_idx = page * per_page
     end_idx = start_idx + per_page
     current_videos = videos[start_idx:end_idx]
-
-    if not videos:
-        return None
 
     for v in current_videos:
         is_cs = v.get("is_coming_soon") or v.get("category") == "COMING SOON"
@@ -127,7 +122,6 @@ def get_delete_keyboard(page=0):
             title_text = title_text[:32] + "..."
         markup.add(types.InlineKeyboardButton(title_text, callback_data=f"delvid_{v.get('id')}_{page}"))
 
-    # পেজ নেভিগেশন বাটন
     nav_buttons = []
     if page > 0:
         nav_buttons.append(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"delpage_{page-1}"))
@@ -140,7 +134,6 @@ def get_delete_keyboard(page=0):
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return markup
 
-# ক্যাটাগরি ম্যানেজমেন্ট বাটন কিবোর্ড
 def get_category_keyboard():
     data = load_data()
     cats = data.get("categories", ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"])
@@ -258,7 +251,6 @@ def send_welcome(message):
     if str(user_id) == str(ADMIN_ID):
         bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
 
-# কলব্যাক হ্যান্ডলার (বাটন ক্লিকে ডিলিট ও পেজিনেশন)
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
     chat_id = call.message.chat.id
@@ -273,7 +265,6 @@ def handle_callbacks(call):
         bot.send_message(chat_id, "💡 **যেভাবে ভিডিও ডাউনলোড করবেন:**\n১. WATCH NOW বাটনে ক্লিক করে অ্যাপে ঢুকুন।\n২. পছন্দের ভিডিও সিলেক্ট করুন।\n৩. দুটি বিজ্ঞাপন ১০ সেকেন্ড করে ভিজিট করুন।\n৪. ডাউনলোড বাটনে চাপ দিলে ভিডিও ইনবক্সে চলে আসবে!")
         return
 
-    # এডমিন বাটন অ্যাকশন
     if str(chat_id) != str(ADMIN_ID):
         bot.answer_callback_query(call.id, "❌ আপনি অ্যাডমিন নন!")
         return
@@ -283,7 +274,6 @@ def handle_callbacks(call):
         bot.answer_callback_query(call.id, "বন্ধ করা হয়েছে!")
         return
 
-    # ডিলিট পেজিনেশন
     if call.data.startswith("delpage_"):
         page = int(call.data.split("_")[1])
         kb = get_delete_keyboard(page)
@@ -292,7 +282,6 @@ def handle_callbacks(call):
         bot.answer_callback_query(call.id)
         return
 
-    # ভিডিও/কামিং সুন এক ক্লিকে ডিলিট
     if call.data.startswith("delvid_"):
         parts = call.data.split("_")
         del_id = parts[1]
@@ -312,7 +301,6 @@ def handle_callbacks(call):
             bot.edit_message_text("❌ আর কোনো ভিডিও বা পোস্ট নেই!", chat_id, call.message.message_id)
         return
 
-    # ক্যাটাগরি এক ক্লিকে ডিলিট
     if call.data.startswith("delcat_"):
         cat_to_del = call.data.replace("delcat_", "")
         data = load_data()
@@ -327,7 +315,6 @@ def handle_callbacks(call):
             bot.answer_callback_query(call.id, "পাওয়া যায়নি!")
         return
 
-    # নতুন ক্যাটাগরি যুক্ত করার প্রম্পট
     if call.data == "add_new_category":
         admin_state[chat_id] = {'step': 'add_single_category'}
         bot.answer_callback_query(call.id)
@@ -339,7 +326,6 @@ def handle_admin_inputs(message):
     chat_id = message.chat.id 
     if str(chat_id) != str(ADMIN_ID): return
 
-    # ১. Add Video
     if message.text == "➕ Add Video":
         admin_state[chat_id] = {'step': 'category'}
         data = load_data()
@@ -350,13 +336,11 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📁 **ভিডিওর ক্যাটাগরি বেছে নিন:**", reply_markup=markup)
         return
 
-    # ২. Add Coming Soon
     elif message.text == "📢 Add Coming Soon":
         admin_state[chat_id] = {'step': 'cs_title', 'category': 'COMING SOON', 'is_coming_soon': True}
         bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন (যেমন: Bachelor Point Season 5 Ep 121-128):**", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # ৩. Delete Video (বাটন আকারে তালিকা)
     elif message.text == "🔕 Delete Video":
         kb = get_delete_keyboard(0)
         if not kb:
@@ -364,17 +348,15 @@ def handle_admin_inputs(message):
             return
         bot.send_message(
             chat_id, 
-            "🗑️ **যে ভিডিও বা কামিং সুন পোস্টটি ডিলিট করতে চান তার বাটনে চাপ দিন:**", 
+            "🗑️️ **যে ভিডিও বা কামিং সুন পোস্টটি ডিলিট করতে চান তার বাটনে চাপ দিন:**", 
             reply_markup=kb
         )
         return
 
-    # ৪. Total Users
     elif message.text == "📊 Total Users":
         show_total_users(message)
         return
 
-    # ৫. Set Category (বাটন আকারে তালিকা ও নতুন যোগের অপশন)
     elif message.text == "📁 Set Category":
         bot.send_message(
             chat_id,
@@ -383,19 +365,16 @@ def handle_admin_inputs(message):
         )
         return
 
-    # ৬. Set Ads Link
     elif message.text == "🎯 Set Ads Link":
         admin_state[chat_id] = {'step': 'ad_1'}
         bot.send_message(chat_id, "🎯 **Task 1 এর এড লিংক (URL) পাঠান:**\n(বাতিল করতে /cancel লিখুন)", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # ৭. Set Welcome Video
     elif message.text == "🎥 Set Welcome Video":
         admin_state[chat_id] = {'step': 'welcome_video'}
         bot.send_message(chat_id, "🎥 **স্টার্টের সময় যে ভিডিওটি শো করবে সেটি পাঠান:**")
         return
 
-    # ৮. BOT NOTICE (ইমেজ + WATCH NOW বাটন)
     elif message.text == "📢 BOT NOTICE":
         admin_state[chat_id] = {'step': 'notice_input'}
         bot.send_message(
@@ -408,7 +387,6 @@ def handle_admin_inputs(message):
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    # নতুন ক্যাটাগরি সেভ করা
     if step == 'add_single_category' and message.text:
         new_c = message.text.strip()
         data = load_data()
@@ -422,7 +400,6 @@ def handle_admin_inputs(message):
         else:
             bot.send_message(chat_id, "⚠️ এই ক্যাটাগরি ইতিমধ্যে রয়েছে অথবা ভুল নাম দিয়েছেন।")
 
-    # Set Ads Link প্রসেস
     elif step == 'ad_1' and message.text:
         admin_state[chat_id]['ad1'] = message.text.strip()
         admin_state[chat_id]['step'] = 'ad_2'
@@ -438,7 +415,6 @@ def handle_admin_inputs(message):
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **বিজ্ঞাপনের লিংক দুটি আপডেট হয়েছে!**", reply_markup=get_admin_keyboard())
 
-    # BOT NOTICE ব্রডকাস্ট (ইমেজ + ক্যাপশন + WATCH NOW বাটন)
     elif step == 'notice_input' and (message.photo or message.text):
         data = load_data()
         user_list = data.get("users", [])
@@ -470,7 +446,6 @@ def handle_admin_inputs(message):
                 pass
         bot.send_message(chat_id, f"✅ মোট **{sent}** জন ইউজারের কাছে নোটিশ পাঠানো সম্পন্ন!")
 
-    # কামিং সুন তথ্য প্রসেস করা
     elif step == 'cs_title' and message.text:
         admin_state[chat_id]['title'] = message.text.strip()
         admin_state[chat_id]['step'] = 'cs_notice'
@@ -507,7 +482,6 @@ def handle_admin_inputs(message):
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **কামিং সুন পোস্ট সফলভাবে যুক্ত হয়েছে! ইউজাররা এতে ক্লিক করলে পপ-আপ দেখতে পাবে।**", reply_markup=get_admin_keyboard())
 
-    # সাধারণ ভিডিও আপলোড লজিক
     elif step == 'category' and message.text:
         admin_state[chat_id]['category'] = message.text.strip()
         admin_state[chat_id]['step'] = 'title'
