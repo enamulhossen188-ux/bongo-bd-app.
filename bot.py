@@ -103,6 +103,7 @@ def get_app_data():
 def home():
     return "Bot Server Live 24/7!"
 
+# ১. মেসেজের ভেতরের ইনলাইন বাটন
 def get_action_buttons():
     fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -110,6 +111,14 @@ def get_action_buttons():
     btn_update = types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update")
     btn_help = types.InlineKeyboardButton("💡 যেভাবে ভিডিও ডাউনলোড করবেন", callback_data="btn_help")
     markup.add(btn_watch, btn_update, btn_help)
+    return markup
+
+# ২. চ্যাটবক্সের নিচের কিবোর্ড বাটন (হুবহু এক লেখা ও আইকন)
+def get_user_menu_keyboard():
+    fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_watch = types.KeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
+    markup.add(btn_watch)
     return markup
 
 def get_admin_keyboard():
@@ -131,7 +140,7 @@ def format_button_label(video):
     is_cs = video.get("is_coming_soon") or video.get("category") == "COMING SOON"
 
     if is_cs:
-        return f"🗑️ [📢 CS] {title[:25]}"
+        return f"🗑️️ [📢 CS] {title[:25]}"
 
     lower_t = title.lower()
     if "bachelor point" in lower_t:
@@ -216,7 +225,7 @@ def open_admin_panel(message):
         return
     bot.send_message(
         message.chat.id, 
-        "🛠️️ **এডমিন প্যানেল সচল করা হয়েছে:**", 
+        "🛠 **এডমিন প্যানেল সচল করা হয়েছে:**", 
         reply_markup=get_admin_keyboard(),
         parse_mode="Markdown"
     )
@@ -226,9 +235,9 @@ def cancel_process(message):
     chat_id = message.chat.id
     if chat_id in admin_state:
         del admin_state[chat_id]
-        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else get_user_menu_keyboard())
     else:
-        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else None)
+        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else get_user_menu_keyboard())
 
 @bot.message_handler(commands=['users', 'stats'])
 def show_total_users(message):
@@ -295,6 +304,8 @@ def send_welcome(message):
 
     if str(user_id) == str(ADMIN_ID):
         bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
+    else:
+        bot.send_message(message.chat.id, "👇 নিচের বাটন থেকেও সরাসরি দেখতে পারেন:", reply_markup=get_user_menu_keyboard())
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -334,7 +345,7 @@ def handle_callbacks(call):
         del_id = parts[1]
         page = int(parts[2]) if len(parts) > 2 else 0
 
-        data = load_data()
+        data = load_data(force_refresh=True)
         videos = data.get("videos", [])
         new_videos = [v for v in videos if str(v.get('id')) != str(del_id)]
         data["videos"] = new_videos
@@ -350,7 +361,7 @@ def handle_callbacks(call):
 
     if call.data.startswith("delcat_"):
         cat_to_del = call.data.replace("delcat_", "")
-        data = load_data()
+        data = load_data(force_refresh=True)
         cats = data.get("categories", [])
         if cat_to_del in cats:
             cats.remove(cat_to_del)
@@ -444,7 +455,7 @@ def handle_admin_inputs(message):
 
     if step == 'set_video_update' and message.text:
         new_notice = message.text.strip()
-        data = load_data()
+        data = load_data(force_refresh=True)
         data["update_notice"] = new_notice
         save_data(data)
         del admin_state[chat_id]
@@ -453,7 +464,7 @@ def handle_admin_inputs(message):
 
     elif step == 'add_single_category' and message.text:
         new_c = message.text.strip()
-        data = load_data()
+        data = load_data(force_refresh=True)
         cats = data.get("categories", [])
         if new_c and new_c not in cats:
             cats.append(new_c)
@@ -470,7 +481,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🎯 **এবার Task 2 এর এড লিংক (URL) পাঠান:**")
 
     elif step == 'ad_2' and message.text:
-        data = load_data()
+        data = load_data(force_refresh=True)
         data["ads"] = {
             "ad1": admin_state[chat_id]['ad1'],
             "ad2": message.text.strip()
@@ -527,7 +538,7 @@ def handle_admin_inputs(message):
         else:
             thumb_url = message.text.strip()
 
-        data = load_data()
+        data = load_data(force_refresh=True)
         new_item = {
             "id": len(data.get('videos', [])) + 1,
             "category": "COMING SOON",
@@ -566,7 +577,7 @@ def handle_admin_inputs(message):
 
     elif step == 'video' and (message.video or message.document):
         file_id = message.video.file_id if message.video else message.document.file_id
-        data = load_data()
+        data = load_data(force_refresh=True)
         new_video = {
             "id": len(data.get('videos', [])) + 1,
             "category": admin_state[chat_id]['category'],
@@ -582,7 +593,7 @@ def handle_admin_inputs(message):
         bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'welcome_video' and message.video:
-        data = load_data()
+        data = load_data(force_refresh=True)
         data['welcome_video'] = message.video.file_id
         save_data(data)
         del admin_state[chat_id]
