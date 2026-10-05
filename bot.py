@@ -12,7 +12,7 @@ from datetime import datetime
 # ১ম বটের নিজস্ব টোকেন ও লিংক কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
-APP_URL = "https://enamulhossen188-ux.github.io/index.html"
+APP_URL = "https://enamulhossen188-ux.github.io/bongo-bd-app/"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
