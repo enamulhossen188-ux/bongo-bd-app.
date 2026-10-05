@@ -12,7 +12,7 @@ from datetime import datetime
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
@@ -216,7 +216,7 @@ def open_admin_panel(message):
         return
     bot.send_message(
         message.chat.id, 
-        "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", 
+        "🛠️️ **এডমিন প্যানেল সচল করা হয়েছে:**", 
         reply_markup=get_admin_keyboard(),
         parse_mode="Markdown"
     )
@@ -588,12 +588,18 @@ def handle_admin_inputs(message):
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **ওয়েলকাম ভিডিও সেট হয়েছে!**", reply_markup=get_admin_keyboard())
 
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+def run_bot():
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print("Bot polling reconnecting...", e)
+            time.sleep(3)
 
 if __name__ == "__main__":
-    t = threading.Thread(target=run_flask)
+    t = threading.Thread(target=run_bot)
     t.daemon = True
     t.start()
-    bot.infinity_polling(skip_pending=True, allowed_updates=['message', 'callback_query', 'my_chat_member', 'chat_member'])
+    
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
