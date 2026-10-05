@@ -11,6 +11,7 @@ from datetime import datetime
 
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
+APP_URL = "https://enamulhossen188-ux.github.io/bongo-bd-app/"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
@@ -103,9 +104,9 @@ def get_app_data():
 def home():
     return "Bot Server Live 24/7!"
 
-# ১. মেসেজের ভেতরের ইনলাইন বাটন
+# ১. ইনলাইন বাটন
 def get_action_buttons():
-    fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
+    fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
     btn_update = types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update")
@@ -113,9 +114,9 @@ def get_action_buttons():
     markup.add(btn_watch, btn_update, btn_help)
     return markup
 
-# ২. চ্যাটবক্সের নিচের কিবোর্ড বাটন (হুবহু এক লেখা ও আইকন)
+# ২. চ্যাটবক্সের কিবোর্ড বাটন (হুবহু একই লেখা ও লিংক)
 def get_user_menu_keyboard():
-    fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
+    fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn_watch = types.KeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
     markup.add(btn_watch)
@@ -140,7 +141,7 @@ def format_button_label(video):
     is_cs = video.get("is_coming_soon") or video.get("category") == "COMING SOON"
 
     if is_cs:
-        return f"🗑️️ [📢 CS] {title[:25]}"
+        return f"🗑 [📢 CS] {title[:25]}"
 
     lower_t = title.lower()
     if "bachelor point" in lower_t:
@@ -235,9 +236,9 @@ def cancel_process(message):
     chat_id = message.chat.id
     if chat_id in admin_state:
         del admin_state[chat_id]
-        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else get_user_menu_keyboard())
+        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_user_menu_keyboard())
     else:
-        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else get_user_menu_keyboard())
+        bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_user_menu_keyboard())
 
 @bot.message_handler(commands=['users', 'stats'])
 def show_total_users(message):
@@ -302,10 +303,8 @@ def send_welcome(message):
     else:
         bot.send_message(message.chat.id, welcome_caption, reply_markup=markup, parse_mode="Markdown")
 
-    if str(user_id) == str(ADMIN_ID):
-        bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
-    else:
-        bot.send_message(message.chat.id, "👇 নিচের বাটন থেকেও সরাসরি দেখতে পারেন:", reply_markup=get_user_menu_keyboard())
+    # সবার জন্য নিচে কিবোর্ড বাটন শো করা
+    bot.send_message(message.chat.id, "👇 নিচের বাটন থেকেও সরাসরি দেখতে পারেন:", reply_markup=get_user_menu_keyboard())
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -445,7 +444,7 @@ def handle_admin_inputs(message):
         admin_state[chat_id] = {'step': 'notice_input'}
         bot.send_message(
             chat_id, 
-            "🖼️ **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
+            "🖼️️ **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
             reply_markup=types.ReplyKeyboardRemove()
         )
         return
@@ -496,7 +495,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, f"⏳ **{len(user_list)} জন ইউজারের কাছে নোটিশ পাঠানো শুরু হয়েছে...**", reply_markup=get_admin_keyboard())
         del admin_state[chat_id]
 
-        fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
+        fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
         notice_markup = types.InlineKeyboardMarkup()
         btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
         notice_markup.add(btn_watch)
