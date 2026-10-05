@@ -9,15 +9,17 @@ import time
 import requests
 from datetime import datetime
 
+# ১ম বটের নিজস্ব টোকেন ও লিংক কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
-APP_URL = "https://enamulhossen188-ux.github.io/bongo-bd-app/"
+APP_URL = "https://enamulhossen188-ux.github.io/index.html"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-BIN_ID = "6ac369b7ac6210605a14defb"
+# ১ম বটের নিজস্ব ক্লাউড ডাটাবেজ
+BIN_ID = "6abbadacac6210605a01bb77"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
 BIN_URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
@@ -104,7 +106,6 @@ def get_app_data():
 def home():
     return "Bot Server Live 24/7!"
 
-# ১. ইনলাইন বাটন
 def get_action_buttons():
     fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -187,7 +188,7 @@ def get_category_keyboard():
     markup = types.InlineKeyboardMarkup()
 
     for c in cats:
-        markup.add(types.InlineKeyboardButton(f"🗑️️ Delete: {c}", callback_data=f"delcat_{c}"))
+        markup.add(types.InlineKeyboardButton(f"🗑 Delete: {c}", callback_data=f"delcat_{c}"))
 
     markup.add(types.InlineKeyboardButton("➕ Add New Category", callback_data="add_new_category"))
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
@@ -295,7 +296,6 @@ def send_welcome(message):
     else:
         bot.send_message(message.chat.id, welcome_caption, reply_markup=markup, parse_mode="Markdown")
 
-    # অতিরিক্ত কিবোর্ড বাটন বাদ দিয়ে শুধু অ্যাডমিন বাটন রাখা হলো
     if str(user_id) == str(ADMIN_ID):
         bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
     else:
