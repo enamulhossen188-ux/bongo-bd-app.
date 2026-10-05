@@ -9,7 +9,7 @@ import time
 import requests
 from datetime import datetime
 
-# আপনার নতুন টোকেন ও আইডি
+# আপনার টোকেন ও আইডি
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 
@@ -17,7 +17,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 CORS(app)
 
-# JSONBin কনফিগারেশন (নতুন বিন আইডি যুক্ত করা হয়েছে)
+# JSONBin কনফিগারেশন (আপনার নতুন BIN_ID)
 BIN_ID = "6ac369b7ac6210605a14defb"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
@@ -71,6 +71,41 @@ def save_data(data):
     except Exception as e:
         print("JSONBin Save Error:", e)
 
+# থাম্বনেইল পার্মানেন্ট ফ্রি হোস্টিংয়ে পাঠানোর ফাংশন
+def upload_thumb_securely(photo_id):
+    try:
+        file_info = bot.get_file(photo_id)
+        downloaded = bot.download_file(file_info.file_path)
+        
+        # নির্ভরযোগ্য Catbox হোস্টিংয়ে পাঠানো
+        res = requests.post(
+            "https://catbox.moe/user/api.php",
+            data={"reqtype": "fileupload"},
+            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
+            timeout=25
+        )
+        if res.status_code == 200 and res.text.strip().startswith("http"):
+            return res.text.strip()
+    except Exception as e:
+        print("Upload Error:", e)
+
+    # Catbox না হলে বিকল্প নির্ভরযোগ্য ইমেজ হোস্ট
+    try:
+        file_info = bot.get_file(photo_id)
+        downloaded = bot.download_file(file_info.file_path)
+        res2 = requests.post(
+            "https://litterbox.catbox.moe/resources/internals/api.php",
+            data={"reqtype": "fileupload", "time": "72h"},
+            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
+            timeout=25
+        )
+        if res2.status_code == 200 and res2.text.strip().startswith("http"):
+            return res2.text.strip()
+    except Exception as e2:
+        print("Fallback Upload Error:", e2)
+
+    return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+
 @app.route('/api/data', methods=['GET'])
 def get_app_data():
     data = load_data()
@@ -78,11 +113,12 @@ def get_app_data():
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
 
 @app.route('/')
 def home():
-    return "Bongo BD Bot Server Live 24/7!"
+    return "Bot Server Live 24/7!"
 
 def get_action_buttons():
     fresh_url = f"https://enamulhossen188-ux.github.io/bongo-bd-app/index.html?ts={int(datetime.now().timestamp())}"
@@ -107,7 +143,6 @@ def get_admin_keyboard():
     markup.add(b1, b2, b3, b4, b5, b6, b7, b8, b9)
     return markup
 
-# ভিডিওর নাম সংক্ষেপ ও পরিষ্কার করার ফাংশন (যাতে বাটনে স্পষ্ট দেখা যায়)
 def format_button_label(video):
     title = video.get('title', 'Video').strip()
     is_cs = video.get("is_coming_soon") or video.get("category") == "COMING SOON"
@@ -115,7 +150,6 @@ def format_button_label(video):
     if is_cs:
         return f"🗑️ [📢 CS] {title[:25]}"
 
-    # যদি bachelor point লেখা থাকে তবে সংক্ষেপে [BP Ep ...] বানিয়ে দেব
     lower_t = title.lower()
     if "bachelor point" in lower_t:
         clean = title
@@ -125,7 +159,6 @@ def format_button_label(video):
         if ep_no:
             return f"🗑️ BP S5 - Ep {ep_no}"
 
-    # সাধারণ ক্ষেত্রে ৩০ অক্ষরের ভেতর সুন্দর করে প্রদর্শন
     if len(title) > 30:
         return f"🗑️ {title[:28]}.."
     return f"🗑️ {title}"
@@ -141,17 +174,13 @@ def get_delete_view_data(page=0):
     end_idx = start_idx + per_page
     current_videos = videos[start_idx:end_idx]
 
-    text_msg = f"🗑️ **ডিলিট মেনু (পেজ: {page+1}/{(len(videos)+per_page-1)//per_page}):**\n"
-    text_msg += "নিচে পুরো নাম দেখে বাটনে চাপ দিয়ে ডিলিট করুন:\n\n"
-
+    text_msg = f"🗑️ **ডিলিট মেনু (পেজ: {page+1}/{(len(videos)+per_page-1)//per_page}):**\n\n"
     markup = types.InlineKeyboardMarkup()
 
     for idx, v in enumerate(current_videos, start=start_idx + 1):
         is_cs = v.get("is_coming_soon") or v.get("category") == "COMING SOON"
         tag = " [📢 COMING SOON]" if is_cs else ""
         text_msg += f"**{idx}.** {v.get('title')}{tag}\n"
-
-        # বাটনের টেক্সট তৈরি
         btn_label = f"{idx}. {format_button_label(v)}"
         markup.add(types.InlineKeyboardButton(btn_label, callback_data=f"delvid_{v.get('id')}_{page}"))
 
@@ -179,25 +208,6 @@ def get_category_keyboard():
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return markup
 
-# থাম্বনেইল নির্ভরযোগ্যভাবে ক্লাউডে আপলোড করার সুরক্ষিত ফাংশন (যাতে কালো না দেখায়)
-def upload_thumb_securely(photo_id):
-    try:
-        file_info = bot.get_file(photo_id)
-        downloaded = bot.download_file(file_info.file_path)
-        res = requests.post(
-            "https://catbox.moe/user/api.php",
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=20
-        )
-        if res.status_code == 200 and res.text.strip().startswith("http"):
-            return res.text.strip()
-    except Exception as e:
-        print("Image Upload Error:", e)
-
-    file_info = bot.get_file(photo_id)
-    return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
-
 @bot.my_chat_member_handler()
 def handle_bot_blocked_or_unblocked(update: types.ChatMemberUpdated):
     user_id = update.chat.id
@@ -223,7 +233,7 @@ def open_admin_panel(message):
         return
     bot.send_message(
         message.chat.id, 
-        "🛠️ **Bongo BD এডমিন প্যানেল সচল করা হয়েছে:**", 
+        "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", 
         reply_markup=get_admin_keyboard(),
         parse_mode="Markdown"
     )
@@ -307,7 +317,6 @@ def send_welcome(message):
 def handle_callbacks(call):
     chat_id = call.message.chat.id
     
-    # ইউজার যখন VIDEO UPDATE বাটনে চাপ দেবে তখন আপনার সেভ করা লেখা শো করবে
     if call.data == "btn_update":
         bot.answer_callback_query(call.id)
         data = load_data()
@@ -426,7 +435,6 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🎥 **স্টার্টের সময় যে ভিডিওটি শো করবে সেটি পাঠান:**")
         return
 
-    # 🔔 কাস্টম ভিডিও আপডেট সেট করার এডমিন বাটন
     elif message.text == "🔔 Set Video Update":
         admin_state[chat_id] = {'step': 'set_video_update'}
         data = load_data()
@@ -451,14 +459,13 @@ def handle_admin_inputs(message):
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    # ভিডিও আপডেট মেসেজ সংরক্ষণ
     if step == 'set_video_update' and message.text:
         new_notice = message.text.strip()
         data = load_data()
         data["update_notice"] = new_notice
         save_data(data)
         del admin_state[chat_id]
-        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট সফলভাবে সেট করা হয়েছে!**\n\nইউজাররা 'VIDEO UPDATE' বাটনে চাপ দিলে এখন এটি দেখতে পাবে:\n\"{new_notice}\"", reply_markup=get_admin_keyboard())
+        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট সফলভাবে সেট করা হয়েছে!**\n\n\"{new_notice}\"", reply_markup=get_admin_keyboard())
         return
 
     elif step == 'add_single_category' and message.text:
@@ -551,7 +558,7 @@ def handle_admin_inputs(message):
         data.setdefault("videos", []).insert(0, new_item)
         save_data(data)
         del admin_state[chat_id]
-        bot.send_message(chat_id, "✅ **কামিং সুন পোস্ট সফলভাবে যুক্ত হয়েছে! ইউজাররা এতে ক্লিক করলে পপ-আপ দেখতে পাবে।**", reply_markup=get_admin_keyboard())
+        bot.send_message(chat_id, "✅ **কামিং সুন পোস্ট সফলভাবে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'category' and message.text:
         admin_state[chat_id]['category'] = message.text.strip()
