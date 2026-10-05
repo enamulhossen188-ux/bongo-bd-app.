@@ -901,7 +901,13 @@
 
         async function initData() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/data?t=` + Date.now());
+                const res = await fetch(`${SERVER_URL}/api/data?t=` + Date.now(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Pragma': 'no-cache',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 appData = await res.json();
                 
                 const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
@@ -1175,4 +1181,4 @@
         initData();
     </script>
 </body>
-  </html>
+                </html>
