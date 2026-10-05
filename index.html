@@ -433,7 +433,7 @@
             font-size: 13px;
         }
 
-        /* ভেরিফিকেশন ফেইল্ড পপ-আপ মোডাল (স্ক্রিনশটের হুবহু ডিজাইন) */
+        /* ভেরিফিকেশন ফেইল্ড পপ-আপ মোডাল */
         .custom-popup-overlay {
             display: none;
             position: fixed;
@@ -587,7 +587,7 @@
         </div>
     </div>
 
-    <!-- স্ক্রিনশটের হুবহু ভেরিফিকেশন ফেইল্ড পপ-আপ -->
+    <!-- ভেরিফিকেশন ফেইল্ড পপ-আপ -->
     <div id="verifyFailPopup" class="custom-popup-overlay">
         <div class="custom-popup-card">
             <div class="popup-close-circle"><i class="fa-solid fa-xmark"></i></div>
@@ -601,7 +601,7 @@
     </div>
 
     <script>
-        const BOT_USERNAME = "banglatrxnatok_bot";
+        const BOT_USERNAME = "BongoBd_ott_Bot";
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
 
@@ -615,12 +615,24 @@
         let taskStartTime = 0;
         let countdownTimer = null;
 
+        function resolveThumb(url) {
+            if (!url) return 'https://placehold.co/640x360?text=No+Thumbnail';
+            let u = url.trim();
+            if (u.includes("api.telegram.org")) {
+                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}`;
+            }
+            return u;
+        }
+
         async function initData() {
             try {
-                const res = await fetch("https://bongo-bd-app-uixi.onrender.com/api/data?t=" + Date.now());
+                const res = await fetch("https://bongo-bd-app-uixi.onrender.com/api/data?t=" + Date.now(), {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
                 appData = await res.json();
                 
-                const cats = appData.categories || ["BPS5", "Web Series", "Movie"];
+                const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
                 if (cats.length > 0) {
                     activeCategory = cats[0];
                 }
@@ -634,12 +646,11 @@
 
         function renderCategoryTabs() {
             const tabsContainer = document.getElementById("categoryTabs");
-            const cats = appData.categories || ["BPS5", "Web Series", "Movie"];
+            const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
             
             let html = '';
-            cats.forEach((c, index) => {
-                const isActive = (activeCategory === c) || (!activeCategory && index === 0);
-                if (isActive) activeCategory = c;
+            cats.forEach((c) => {
+                const isActive = (activeCategory.toLowerCase() === c.toLowerCase());
                 html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}', this)">${c}</div>`;
             });
             tabsContainer.innerHTML = html;
@@ -669,9 +680,12 @@
                     const card = document.createElement("div");
                     card.className = "video-card";
                     card.onclick = () => openDetail(item);
+                    
+                    const thumbUrl = resolveThumb(item.thumb);
+
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${item.thumb || 'https://via.placeholder.com/640x360?text=Natok'}" alt="Thumb">
+                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Thumbnail';">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
@@ -702,7 +716,7 @@
             document.getElementById("mainView").style.display = "none";
             document.getElementById("detailView").style.display = "block";
 
-            document.getElementById("detailThumb").src = video.thumb || 'https://via.placeholder.com/640x360';
+            document.getElementById("detailThumb").src = resolveThumb(video.thumb);
             document.getElementById("detailTitle").innerText = video.title;
 
             resetTasks();
@@ -806,7 +820,6 @@
             document.getElementById("verifyFailPopup").style.display = "none";
         }
 
-        // ইউজার ১০ সেকেন্ড পার হওয়ার আগে ব্যাক করলে পপ-আপ শো করবে
         function handleVisibilityOrFocus() {
             if (document.visibilityState === "visible" && activeTask !== null) {
                 const elapsedSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
