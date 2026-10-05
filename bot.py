@@ -17,8 +17,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 CORS(app)
 
-# JSONBin কনফিগারেশন
-BIN_ID = "6abbadacac6210605a01bb77"
+# JSONBin কনফিগারেশন (নতুন বিন আইডি যুক্ত করা হয়েছে)
+BIN_ID = "6ac369b7ac6210605a14defb"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
 
 BIN_URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
