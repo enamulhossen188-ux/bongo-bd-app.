@@ -58,6 +58,7 @@ def load_data(force_refresh=False):
         "categories": ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"],
         "ads": {"ad1": "https://google.com", "ad2": "https://google.com"},
         "welcome_video": "",
+        "update_notice": "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!",
         "videos": []
     }
 
@@ -101,8 +102,9 @@ def get_admin_keyboard():
     b5 = types.KeyboardButton("📁 Set Category")
     b6 = types.KeyboardButton("🎯 Set Ads Link")
     b7 = types.KeyboardButton("🎥 Set Welcome Video")
-    b8 = types.KeyboardButton("📢 BOT NOTICE")
-    markup.add(b1, b2, b3, b4, b5, b6, b7, b8)
+    b8 = types.KeyboardButton("🔔 Set Video Update")
+    b9 = types.KeyboardButton("📢 BOT NOTICE")
+    markup.add(b1, b2, b3, b4, b5, b6, b7, b8, b9)
     return markup
 
 # ভিডিওর নাম সংক্ষেপ ও পরিষ্কার করার ফাংশন (যাতে বাটনে স্পষ্ট দেখা যায়)
@@ -176,6 +178,25 @@ def get_category_keyboard():
     markup.add(types.InlineKeyboardButton("➕ Add New Category", callback_data="add_new_category"))
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return markup
+
+# থাম্বনেইল নির্ভরযোগ্যভাবে ক্লাউডে আপলোড করার সুরক্ষিত ফাংশন (যাতে কালো না দেখায়)
+def upload_thumb_securely(photo_id):
+    try:
+        file_info = bot.get_file(photo_id)
+        downloaded = bot.download_file(file_info.file_path)
+        res = requests.post(
+            "https://catbox.moe/user/api.php",
+            data={"reqtype": "fileupload"},
+            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
+            timeout=20
+        )
+        if res.status_code == 200 and res.text.strip().startswith("http"):
+            return res.text.strip()
+    except Exception as e:
+        print("Image Upload Error:", e)
+
+    file_info = bot.get_file(photo_id)
+    return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
 @bot.my_chat_member_handler()
 def handle_bot_blocked_or_unblocked(update: types.ChatMemberUpdated):
@@ -286,9 +307,12 @@ def send_welcome(message):
 def handle_callbacks(call):
     chat_id = call.message.chat.id
     
+    # ইউজার যখন VIDEO UPDATE বাটনে চাপ দেবে তখন আপনার সেভ করা লেখা শো করবে
     if call.data == "btn_update":
         bot.answer_callback_query(call.id)
-        bot.send_message(chat_id, "🔔 **আপডেট নোটিফিকেশন:** নতুন সব নাটক বা পর্ব খুব দ্রুত মিনি অ্যাপে যুক্ত করা হচ্ছে। সাথে থাকুন!")
+        data = load_data()
+        notice_text = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
+        bot.send_message(chat_id, f"📢 **ভিডিও আপডেট:**\n\n{notice_text}")
         return
         
     elif call.data == "btn_help":
@@ -372,7 +396,6 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন (যেমন: Bachelor Point Season 5 Ep 121-128):**", reply_markup=types.ReplyKeyboardRemove())
         return
 
-    # টাইটেল ও নম্বর দেখে ডিলিট করার বাটন মেনু
     elif message.text == "🔕 Delete Video":
         txt, kb = get_delete_view_data(0)
         if not kb:
@@ -403,6 +426,19 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🎥 **স্টার্টের সময় যে ভিডিওটি শো করবে সেটি পাঠান:**")
         return
 
+    # 🔔 কাস্টম ভিডিও আপডেট সেট করার এডমিন বাটন
+    elif message.text == "🔔 Set Video Update":
+        admin_state[chat_id] = {'step': 'set_video_update'}
+        data = load_data()
+        current_up = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
+        bot.send_message(
+            chat_id, 
+            f"🔔 **বর্তমানে সেভ করা ভিডিও আপডেট:**\n`{current_up}`\n\nইউজাররা যখন 'VIDEO UPDATE' বাটনে চাপ দিবে তখন কত থেকে কত পর্ব এসেছে বা কী মেসেজ দেখাবে তা লিখে পাঠান:\n(যেমন: 'ব্যাচেলর পয়েন্ট পর্ব ১০১ থেকে ১২০ আপলোড হয়েছে!')\n(বাতিল করতে /cancel লিখুন)",
+            parse_mode="Markdown",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        return
+
     elif message.text == "📢 BOT NOTICE":
         admin_state[chat_id] = {'step': 'notice_input'}
         bot.send_message(
@@ -415,7 +451,17 @@ def handle_admin_inputs(message):
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    if step == 'add_single_category' and message.text:
+    # ভিডিও আপডেট মেসেজ সংরক্ষণ
+    if step == 'set_video_update' and message.text:
+        new_notice = message.text.strip()
+        data = load_data()
+        data["update_notice"] = new_notice
+        save_data(data)
+        del admin_state[chat_id]
+        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট সফলভাবে সেট করা হয়েছে!**\n\nইউজাররা 'VIDEO UPDATE' বাটনে চাপ দিলে এখন এটি দেখতে পাবে:\n\"{new_notice}\"", reply_markup=get_admin_keyboard())
+        return
+
+    elif step == 'add_single_category' and message.text:
         new_c = message.text.strip()
         data = load_data()
         cats = data.get("categories", [])
@@ -487,10 +533,7 @@ def handle_admin_inputs(message):
     elif step == 'cs_thumb' and (message.photo or message.text):
         if message.photo:
             bot.send_chat_action(chat_id, 'upload_photo')
-            file_info = bot.get_file(message.photo[-1].file_id)
-            downloaded = bot.download_file(file_info.file_path)
-            res = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")})
-            thumb_url = res.text.strip() if res.status_code == 200 else f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+            thumb_url = upload_thumb_securely(message.photo[-1].file_id)
         else:
             thumb_url = message.text.strip()
 
@@ -523,10 +566,7 @@ def handle_admin_inputs(message):
     elif step == 'thumb' and (message.photo or message.text):
         if message.photo:
             bot.send_chat_action(chat_id, 'upload_photo')
-            file_info = bot.get_file(message.photo[-1].file_id)
-            downloaded = bot.download_file(file_info.file_path)
-            res = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")})
-            thumb_url = res.text.strip() if res.status_code == 200 else f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+            thumb_url = upload_thumb_securely(message.photo[-1].file_id)
         else:
             thumb_url = message.text.strip()
 
