@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bongo BD</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --surface-color: rgba(22, 23, 29, 0.85);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ff0055;
+            --primary-gradient: linear-gradient(135deg, #ff007f 0%, #ff0055 100%);
+            --accent-pink: #ff007f;
+            --accent-glow: rgba(255, 0, 127, 0.5);
+            --text-color: #f8fafc;
+            --text-muted: #8e9bb0;
+            --input-bg: #181920;
+            --badge-bg: rgba(255, 0, 127, 0.15);
+            --badge-text: #ff3385;
+        }
+
+        body.light-mode {
+            --bg-color: #f1f5f9;
+            --surface-color: rgba(255, 255, 255, 0.9);
+            --card-border: rgba(0, 0, 0, 0.06);
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+            --input-bg: #e2e8f0;
+            --badge-bg: #ffe4e6;
+            --badge-text: #e11d48;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 14px;
+            transition: background 0.3s ease;
+        }
+
+        /* হেডার */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 14px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .menu-trigger-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .theme-toggle-gear {
+            background: #23252d;
+            border: 2px solid var(--accent-pink);
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+        }
+
+        /* সাইডবার মেনু ড্রয়ার (স্ক্রিনশটের স্টাইল) */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+
+        .sidebar-drawer {
+            position: fixed;
+            top: 0; left: -260px;
+            width: 250px; height: 100%;
+            background: #18191f;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.6);
+            transition: left 0.3s ease;
+            z-index: 10000;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .sidebar-drawer.open {
+            left: 0;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: var(--text-color);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sidebar-item.active {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 14px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 11px 16px 11px 40px;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            color: var(--text-color);
+            font-size: 13px;
+            outline: none;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-pink);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .category-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 12px;
+            scrollbar-width: none;
+        }
+        .category-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-chip {
+            padding: 6px 14px;
+            background: var(--surface-color);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            font-size: 12px;
+            white-space: nowrap;
+            color: var(--text-muted);
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+        }
+
+        .category-chip.active {
+            background: var(--primary-gradient);
+            color: #ffffff;
+            font-weight: 600;
+            border: none;
+            box-shadow: 0 2px 10px var(--accent-glow);
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .video-card {
+            background: var(--surface-color);
+            border: 1.5px solid var(--accent-pink);
+            box-shadow: 0 0 12px rgba(255, 0, 127, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .video-card:active {
+            transform: scale(0.98);
+        }
+
+        .thumb-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background: #000;
+        }
+
+        .thumb-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-details {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .video-title {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--text-color);
+        }
+
+        .video-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* NEXT 10 VIDEOS বাটন (স্ক্রিনশটের হুবহু ব্লু বাটন) */
+        .load-more-btn {
+            display: none;
+            width: 100%;
+            max-width: 250px;
+            margin: 22px auto 12px auto;
+            padding: 12px 18px;
+            background: #0088cc;
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 136, 204, 0.4);
+            text-align: center;
+        }
+
+        /* ইউজার প্রোফাইল ভিউ */
+        .profile-view {
+            display: none;
+            padding: 8px 0;
+        }
+
+        .profile-card {
+            background: var(--surface-color);
+            border-radius: 16px;
+            padding: 24px 18px;
+            border: 1.5px solid var(--accent-pink);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.2);
+            text-align: center;
+            backdrop-filter: blur(14px);
+        }
+
+        .profile-avatar {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            border: 3px solid var(--accent-pink);
+            margin: 0 auto 12px auto;
+            object-fit: cover;
+            background: #22242d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #fff;
+        }
+
+        .profile-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+        .profile-username { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+        .profile-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .stat-box {
+            background: var(--input-bg);
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+        }
+
+        .stat-box h5 { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .stat-box p { font-size: 15px; font-weight: 700; color: #ff0055; }
+
+        /* ডিটেইল পেজ */
+        .detail-view {
+            display: none;
+            padding: 4px 0;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detail-card {
+            background: var(--surface-color);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 14px;
+            backdrop-filter: blur(14px);
+        }
+
+        .rotating-border-box {
+            position: relative;
+            padding: 2px;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .rotating-border-box::before {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 300%;
+            background: conic-gradient(transparent, #ff007f, #ff3385, transparent 60%);
+            animation: rotateGlow 3s linear infinite;
+        }
+
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #detailThumb {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            border-radius: 12px;
+            position: relative;
+            z-index: 1;
+            background: #000;
+        }
+
+        .detail-title-card {
+            border: 1.5px solid var(--accent-pink);
+            border-radius: 10px;
+            padding: 10px 14px;
+            text-align: center;
+            margin-bottom: 12px;
+            background: rgba(255, 0, 127, 0.03);
+        }
+
+        .unlock-info-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+            padding: 10px 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.4;
+            margin-bottom: 14px;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .task-card-animated {
+            position: relative;
+            border-radius: 14px;
+            padding: 2px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .task-card-animated::before {
+            content: '';
+            position: absolute;
+            width: 250%;
+            height: 250%;
+            background: conic-gradient(transparent, transparent, #ff007f, #ff3385, #ff007f);
+            animation: rotateTaskBorder 3.5s linear infinite;
+        }
+
+        @keyframes rotateTaskBorder {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .task-card-row {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--input-bg);
+            border-radius: 12px;
+        }
+
+        .task-info-left {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .task-icon {
+            font-size: 18px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .task-icon.completed {
+            color: #10b981;
+        }
+
+        .task-text h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .task-text p {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .visit-action-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .visit-action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .visit-action-btn.running {
+            background: #0088cc;
+            pointer-events: none;
+        }
+
+        .visit-action-btn.done {
+            background: #10b981 !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4) !important;
+            pointer-events: none;
+        }
+
+        .download-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            background: #10b981;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+
+        .download-btn.disabled {
+            background: #1e293b;
+            color: #64748b;
+            pointer-events: none;
+            box-shadow: none;
+        }
+
+        .empty-msg {
+            text-align: center;
+            color: var(--text-muted);
+            margin-top: 40px;
+            font-size: 13px;
+        }
+
+        /* কামিং সুন নোটিশ পপ-আপ মোডাল (স্ক্রিনশটের হুবহু ডিজাইন) */
+        .coming-soon-popup {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 999999;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .coming-soon-card {
+            background: #18191f;
+            width: 86%;
+            max-width: 330px;
+            border-radius: 20px;
+            padding: 24px 18px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+
+        .coming-soon-icon {
+            font-size: 42px;
+            color: #00a2ff;
+            margin-bottom: 12px;
+        }
+
+        .coming-soon-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .coming-soon-desc {
+            font-size: 13px;
+            color: #cbd5e1;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .coming-soon-close-btn {
+            background: #0088cc;
+            color: #fff;
+            border: none;
+            width: 100%;
+            padding: 11px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .coming-soon-close-btn:active {
+            background: #0077b3;
+        }
+
+        /* ভেরিফিকেশন ফেইল্ড পপ-আপ মোডাল */
+        .custom-popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(5px);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .custom-popup-card {
+            background: #18191f;
+            width: 86%;
+            max-width: 320px;
+            border-radius: 24px;
+            padding: 26px 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+
+        .popup-close-circle {
+            width: 54px;
+            height: 54px;
+            background: #e61937;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            margin: 0 auto 16px auto;
+            box-shadow: 0 4px 12px rgba(230, 25, 55, 0.4);
+        }
+
+        .popup-title {
+            color: #ffffff;
+            font-size: 19px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .popup-desc {
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 22px;
+        }
+
+        .popup-highlight {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
+        .popup-action-btn {
+            background: #ffffff;
+            color: #0f172a;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .popup-action-btn:active {
+            background: #e2e8f0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- সাইডবার মেনু ড্রয়ার -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar-drawer" id="sidebarDrawer">
+        <h3 style="color:#ff0055; margin-bottom:14px; font-size:18px;"><i class="fa-solid fa-play"></i> Bongo BD</h3>
+        <div class="sidebar-item active" id="menuHome" onclick="switchTab('home')">
+            <i class="fa-solid fa-house" style="color:#ef4444;"></i> Home Panel
+        </div>
+        <div class="sidebar-item" id="menuProfile" onclick="switchTab('profile')">
+            <i class="fa-solid fa-user"></i> User Profile
+        </div>
+    </div>
+
+    <!-- হেডার -->
+    <div class="header">
+        <div class="header-left">
+            <button class="menu-trigger-btn" onclick="openSidebar()"><i class="fa-solid fa-bars"></i></button>
+            <h1><i class="fa-solid fa-circle-play"></i> Bongo BD</h1>
+        </div>
+        <button class="theme-toggle-gear" onclick="toggleTheme()" id="themeBtn"><i class="fa-solid fa-gear"></i></button>
+    </div>
+
+    <!-- হোম ভিউ -->
+    <div id="mainView">
+        <div class="search-container">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="searchInput" class="search-input" placeholder="ভিডিও নাম বা এপিসোড লিখে সার্চ দিন..." oninput="handleSearch()">
+        </div>
+
+        <div class="category-scroll" id="categoryTabs"></div>
+
+        <div class="video-grid" id="videoContainer"></div>
+        <!-- NEXT 10 VIDEOS বাটন -->
+        <button id="loadMoreBtn" class="load-more-btn" onclick="loadMoreVideos()">NEXT 10 VIDEOS <i class="fa-solid fa-chevron-down"></i></button>
+        <div class="empty-msg" id="emptyMessage" style="display: none;">কোনো ভিডিও খুঁজে পাওয়া যায়নি!</div>
+    </div>
+
+    <!-- ইউজার প্রোফাইল ভিউ -->
+    <div class="profile-view" id="profileView">
+        <button class="back-btn" onclick="switchTab('home')"><i class="fa-solid fa-arrow-left"></i> ব্যাক টু হোম</button>
+        <div class="profile-card">
+            <div id="userAvatarContainer" class="profile-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="profile-name" id="userName">User</div>
+            <div class="profile-username" id="userUsername">@username</div>
+            <div style="font-size:12px; color:#94a3b8;">User ID: <span id="userIdVal" style="color:#ff007f;">12345678</span></div>
+
+            <div class="profile-stats-grid">
+                <div class="stat-box">
+                    <h5>মোট নাটক</h5>
+                    <p id="totalNatokCount">0</p>
+                </div>
+                <div class="stat-box">
+                    <h5>অ্যাকাউন্ট স্ট্যাটাস</h5>
+                    <p style="color:#10b981;">সক্রিয় ✅</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ডিটেইল পেজ -->
+    <div class="detail-view" id="detailView">
+        <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> ফিরে যান</button>
+        <div class="detail-card">
+            
+            <div class="rotating-border-box">
+                <img id="detailThumb" src="" alt="Thumbnail">
+            </div>
+
+            <div class="detail-title-card">
+                <h2 id="detailTitle" style="font-size: 15px; font-weight: 700;"></h2>
+            </div>
+
+            <div class="unlock-info-box">
+                <i class="fa-solid fa-lock" style="color: #ef4444;"></i>
+                <span>ভিডিওটি আনলক করার জন্য নিচের দুইটা এড দেখে নিন ১০ সেকেন্ড করে।</span>
+            </div>
+
+            <!-- ঘূর্ণায়মান বর্ডারযুক্ত টাস্ক বাটন -->
+            <div class="task-list">
+                <!-- Task 1 -->
+                <div class="task-card-animated">
+                    <div class="task-card-row">
+                        <div class="task-info-left">
+                            <i id="task1Icon" class="fa-solid fa-circle-check task-icon"></i>
+                            <div class="task-text">
+                                <h4>Task 1</h4>
+                                <p id="task1Desc">ভিজিট করে ১০ সেকেন্ড অপেক্ষা করুন</p>
+                            </div>
+                        </div>
+                        <button id="task1Btn" class="visit-action-btn" onclick="startTask(1)">VISIT</button>
+                    </div>
+                </div>
+
+                <!-- Task 2 -->
+                <div class="task-card-animated">
+                    <div class="task-card-row">
+                        <div class="task-info-left">
+                            <i id="task2Icon" class="fa-solid fa-circle-check task-icon"></i>
+                            <div class="task-text">
+                                <h4>Task 2</h4>
+                                <p id="task2Desc">ভিজিট করে ১০ সেকেন্ড অপেক্ষা করুন</p>
+                            </div>
+                        </div>
+                        <button id="task2Btn" class="visit-action-btn" onclick="startTask(2)">VISIT</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ডাউনলোড বাটন -->
+            <button id="downloadBtn" class="download-btn disabled" onclick="sendToInbox()">
+                <i class="fa-solid fa-download"></i> ডাউনলোড ভিডিও
+            </button>
+        </div>
+    </div>
+
+    <!-- কামিং সুন নোটিশ পপ-আপ -->
+    <div id="comingSoonModal" class="coming-soon-popup">
+        <div class="coming-soon-card">
+            <div class="coming-soon-icon"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="coming-soon-title" id="csTitle">Bachelor Point Season [ 5 ]</div>
+            <div class="coming-soon-desc" id="csNoticeText">
+                ❤️ ব্যাচেলর পয়েন্ট সিজন ৫ এর পর্ব ১২১ থেকে ১২৮ আসবে ২০ অক্টোবর এর ভিতর এজন্য সবাই অপেক্ষা করুন ❤️
+            </div>
+            <button class="coming-soon-close-btn" onclick="closeComingSoon()">Close</button>
+        </div>
+    </div>
+
+    <!-- ভেরিফিকেশন ফেইল্ড পপ-আপ মোডাল -->
+    <div id="verifyFailPopup" class="custom-popup-overlay">
+        <div class="custom-popup-card">
+            <div class="popup-close-circle"><i class="fa-solid fa-xmark"></i></div>
+            <div class="popup-title">ভেরিফিকেশন ব্যর্থ!</div>
+            <div class="popup-desc">
+                আপনি সম্পূর্ণ ১০ সেকেন্ড অ্যাড দেখেন নাই!<br>
+                দেখেছেন <span id="seenSecondsTxt" class="popup-highlight">0</span> সেঃ। আরও <span id="needSecondsTxt" class="popup-highlight">10</span> সেঃ প্রয়োজন।
+            </div>
+            <button class="popup-action-btn" onclick="closePopup()">বুঝতে পেরেছি</button>
+        </div>
+    </div>
+
+    <script>
+        const BOT_USERNAME = "BongoBd_ott_Bot"; // আপনার নতুন বটের ইউজারনেম
+        const SERVER_URL = "https://bongo-bd-app.onrender.com"; // আপনার নতুন রেন্ডার লাইভ সার্ভার লিংক
+
+        const tg = window.Telegram?.WebApp;
+        if (tg) tg.expand();
+
+        let appData = { videos: [], ads: {} };
+        let activeCategory = '';
+        let currentSelectedVideo = null;
+        let displayedCount = 10;
+
+        let task1Done = false;
+        let task2Done = false;
+        let activeTask = null;
+        let taskStartTime = 0;
+        let countdownTimer = null;
+
+        function openSidebar() {
+            document.getElementById("sidebarOverlay").style.display = "block";
+            document.getElementById("sidebarDrawer").classList.add("open");
+        }
+
+        function closeSidebar() {
+            document.getElementById("sidebarOverlay").style.display = "none";
+            document.getElementById("sidebarDrawer").classList.remove("open");
+        }
+
+        function switchTab(tab) {
+            closeSidebar();
+            if (tab === 'home') {
+                document.getElementById("profileView").style.display = "none";
+                document.getElementById("detailView").style.display = "none";
+                document.getElementById("mainView").style.display = "block";
+                document.getElementById("menuHome").classList.add("active");
+                document.getElementById("menuProfile").classList.remove("active");
+            } else if (tab === 'profile') {
+                document.getElementById("mainView").style.display = "none";
+                document.getElementById("detailView").style.display = "none";
+                document.getElementById("profileView").style.display = "block";
+                document.getElementById("menuHome").classList.remove("active");
+                document.getElementById("menuProfile").classList.add("active");
+                loadUserProfile();
+            }
+        }
+
+        function loadUserProfile() {
+            const user = tg?.initDataUnsafe?.user || { first_name: "Visitor", username: "guest", id: "00000000" };
+            document.getElementById("userName").innerText = (user.first_name || "") + " " + (user.last_name || "");
+            document.getElementById("userUsername").innerText = user.username ? `@${user.username}` : "No username";
+            document.getElementById("userIdVal").innerText = user.id;
+
+            if (user.photo_url) {
+                document.getElementById("userAvatarContainer").innerHTML = `<img src="${user.photo_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+            }
+            document.getElementById("totalNatokCount").innerText = (appData.videos || []).length;
+        }
+
+        async function initData() {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/data?t=` + Date.now());
+                appData = await res.json();
+                
+                const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
+                if (cats.length > 0) {
+                    activeCategory = cats[0];
+                }
+                
+                renderCategoryTabs();
+                renderVideos();
+            } catch (err) {
+                console.error("ডাটা লোড ত্রুটি:", err);
+            }
+        }
+
+        function renderCategoryTabs() {
+            const tabsContainer = document.getElementById("categoryTabs");
+            const cats = appData.categories || ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"];
+            
+            let html = '';
+            cats.forEach((c) => {
+                const isActive = (activeCategory === c);
+                html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}', this)">${c}</div>`;
+            });
+            tabsContainer.innerHTML = html;
+        }
+
+        function renderVideos() {
+            const container = document.getElementById("videoContainer");
+            const empty = document.getElementById("emptyMessage");
+            const loadBtn = document.getElementById("loadMoreBtn");
+            const query = document.getElementById("searchInput").value.toLowerCase().trim();
+
+            let list = appData.videos || [];
+
+            if (activeCategory) {
+                list = list.filter(v => (v.category || '').toLowerCase() === activeCategory.toLowerCase());
+            }
+
+            if (query) {
+                list = list.filter(v => (v.title || '').toLowerCase().includes(query));
+            }
+
+            container.innerHTML = "";
+            if (list.length === 0) {
+                empty.style.display = "block";
+                loadBtn.style.display = "none";
+            } else {
+                empty.style.display = "none";
+                const paginatedList = list.slice(0, displayedCount);
+
+                paginatedList.forEach(item => {
+                    const card = document.createElement("div");
+                    card.className = "video-card";
+                    card.onclick = () => handleVideoClick(item);
+                    card.innerHTML = `
+                        <div class="thumb-wrapper">
+                            <img class="thumb-img" src="${item.thumb || 'https://via.placeholder.com/640x360?text=Natok'}" alt="Thumb">
+                        </div>
+                        <div class="card-details">
+                            <div class="video-title">${item.title}</div>
+                            <div class="video-meta">
+                                <span><i class="fa-solid fa-calendar-days" style="color:#ff0055;"></i> ${item.date || '04 October 2026'}</span>
+                                <span><i class="fa-regular fa-clock" style="color:#ff0055;"></i> ${item.time || '06:14 PM'}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                if (list.length > displayedCount) {
+                    loadBtn.style.display = "block";
+                } else {
+                    loadBtn.style.display = "none";
+                }
+            }
+        }
+
+        function loadMoreVideos() {
+            displayedCount += 10;
+            renderVideos();
+        }
+
+        function handleVideoClick(item) {
+            // যদি ক্যাটাগরি Coming Soon হয় তবে সরাসরি নোটিশ পপ-আপ শো করবে
+            if ((item.category || '').toUpperCase() === "COMING SOON" || item.is_coming_soon) {
+                document.getElementById("csTitle").innerText = item.title;
+                document.getElementById("csNoticeText").innerText = item.notice || "❤️ এই নাটকটির পর্ব খুব শীঘ্রই আসবে এজন্য সবাই অপেক্ষা করুন ❤️";
+                document.getElementById("comingSoonModal").style.display = "flex";
+                return;
+            }
+            openDetail(item);
+        }
+
+        function closeComingSoon() {
+            document.getElementById("comingSoonModal").style.display = "none";
+        }
+
+        function handleSearch() {
+            displayedCount = 10;
+            renderVideos();
+        }
+
+        function filterCategory(cat, el) {
+            activeCategory = cat;
+            displayedCount = 10;
+            document.querySelectorAll(".category-chip").forEach(c => c.classList.remove("active"));
+            el.classList.add("active");
+            renderVideos();
+        }
+
+        function openDetail(video) {
+            currentSelectedVideo = video;
+            document.getElementById("mainView").style.display = "none";
+            document.getElementById("detailView").style.display = "block";
+
+            document.getElementById("detailThumb").src = video.thumb || 'https://via.placeholder.com/640x360';
+            document.getElementById("detailTitle").innerText = video.title;
+
+            resetTasks();
+        }
+
+        function resetTasks() {
+            task1Done = false;
+            task2Done = false;
+            activeTask = null;
+            if (countdownTimer) clearInterval(countdownTimer);
+
+            const btn1 = document.getElementById("task1Btn");
+            const btn2 = document.getElementById("task2Btn");
+            const dlBtn = document.getElementById("downloadBtn");
+
+            btn1.className = "visit-action-btn";
+            btn1.innerHTML = "VISIT";
+            document.getElementById("task1Icon").className = "fa-solid fa-circle-check task-icon";
+            document.getElementById("task1Desc").innerText = "ভিজিট করে ১০ সেকেন্ড অপেক্ষা করুন";
+
+            btn2.className = "visit-action-btn";
+            btn2.innerHTML = "VISIT";
+            document.getElementById("task2Icon").className = "fa-solid fa-circle-check task-icon";
+            document.getElementById("task2Desc").innerText = "ভিজিট করে ১০ সেকেন্ড অপেক্ষা করুন";
+
+            dlBtn.className = "download-btn disabled";
+        }
+
+        function goBack() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            activeTask = null;
+            document.getElementById("detailView").style.display = "none";
+            document.getElementById("mainView").style.display = "block";
+        }
+
+        function startTask(taskNum) {
+            if (taskNum === 1 && task1Done) return;
+            if (taskNum === 2 && task2Done) return;
+
+            activeTask = taskNum;
+            taskStartTime = Date.now();
+
+            const adUrl = (taskNum === 1) ? (appData.ads?.ad1 || "https://google.com") : (appData.ads?.ad2 || "https://google.com");
+
+            if (tg && tg.openLink) {
+                tg.openLink(adUrl);
+            } else {
+                window.open(adUrl, "_blank");
+            }
+
+            const btn = document.getElementById(taskNum === 1 ? "task1Btn" : "task2Btn");
+            const desc = document.getElementById(taskNum === 1 ? "task1Desc" : "task2Desc");
+
+            btn.className = "visit-action-btn running";
+            btn.innerHTML = `10s`;
+            desc.innerText = "অপেক্ষা করুন...";
+
+            if (countdownTimer) clearInterval(countdownTimer);
+
+            countdownTimer = setInterval(() => {
+                const passed = Math.floor((Date.now() - taskStartTime) / 1000);
+                const remaining = 10 - passed;
+
+                if (remaining > 0) {
+                    btn.innerHTML = `${remaining}s`;
+                } else {
+                    clearInterval(countdownTimer);
+                    completeTask(taskNum);
+                }
+            }, 500);
+        }
+
+        function completeTask(taskNum) {
+            const btn = document.getElementById(taskNum === 1 ? "task1Btn" : "task2Btn");
+            const icon = document.getElementById(taskNum === 1 ? "task1Icon" : "task2Icon");
+            const desc = document.getElementById(taskNum === 1 ? "task1Desc" : "task2Desc");
+
+            btn.className = "visit-action-btn done";
+            btn.innerHTML = `DONE`;
+            icon.classList.add("completed");
+            desc.innerText = "টাস্ক সম্পন্ন হয়েছে ✅";
+
+            if (taskNum === 1) task1Done = true;
+            if (taskNum === 2) task2Done = true;
+
+            activeTask = null;
+
+            if (task1Done && task2Done) {
+                const dlBtn = document.getElementById("downloadBtn");
+                dlBtn.className = "download-btn";
+            }
+        }
+
+        function showFailedPopup(seenSec, needSec) {
+            document.getElementById("seenSecondsTxt").innerText = seenSec;
+            document.getElementById("needSecondsTxt").innerText = needSec;
+            document.getElementById("verifyFailPopup").style.display = "flex";
+        }
+
+        function closePopup() {
+            document.getElementById("verifyFailPopup").style.display = "none";
+        }
+
+        function handleVisibilityOrFocus() {
+            if (document.visibilityState === "visible" && activeTask !== null) {
+                const elapsedSeconds = Math.floor((Date.now() - taskStartTime) / 1000);
+
+                if (elapsedSeconds < 10) {
+                    clearInterval(countdownTimer);
+                    const taskFailed = activeTask;
+                    activeTask = null;
+
+                    const btn = document.getElementById(taskFailed === 1 ? "task1Btn" : "task2Btn");
+                    const desc = document.getElementById(taskFailed === 1 ? "task1Desc" : "task2Desc");
+
+                    btn.className = "visit-action-btn";
+                    btn.innerHTML = `VISIT`;
+                    desc.innerText = "ভিজিট করে ১০ সেকেন্ড অপেক্ষা করুন";
+
+                    const remainingNeed = 10 - (elapsedSeconds < 0 ? 0 : elapsedSeconds);
+                    showFailedPopup(elapsedSeconds < 0 ? 0 : elapsedSeconds, remainingNeed);
+                } else {
+                    clearInterval(countdownTimer);
+                    completeTask(activeTask);
+                }
+            }
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+        window.addEventListener("focus", handleVisibilityOrFocus);
+
+        function sendToInbox() {
+            if (!task1Done || !task2Done) return;
+
+            if (currentSelectedVideo) {
+                const startParam = `vid_${currentSelectedVideo.id}`;
+                const targetUrl = `https://t.me/${BOT_USERNAME}?start=${startParam}`;
+
+                if (tg && tg.openTelegramLink) {
+                    tg.openTelegramLink(targetUrl);
+                } else {
+                    window.location.href = targetUrl;
+                }
+
+                if (tg && tg.close) {
+                    setTimeout(() => tg.close(), 300);
+                }
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle("light-mode");
+        }
+
+        initData();
+    </script>
+</body>
+  </html>
