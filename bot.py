@@ -1,4 +1,4 @@
- import telebot
+import telebot
 from telebot import types
 from flask import Flask, jsonify, make_response, send_file
 from flask_cors import CORS
@@ -10,7 +10,7 @@ from datetime import datetime
 import urllib.parse
 from pymongo import MongoClient
 
-# ২য় বটের নিজস্ব টোকেন ও কনফিগারেশন
+# বটের নিজস্ব টোকেন ও কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
@@ -20,8 +20,7 @@ app = Flask(__name__)
 CORS(app)
 
 # MongoDB Atlas ক্লাউড ডাটাবেজ কনফিগারেশন
-# নিচের <db_password> এর জায়গায় আপনার তৈরি করা আসল ডাটাবেজ পাসওয়ার্ডটি দিন
-MONGO_URI = "mongodb+srv://enamulhossen473_db_user:<db_password>@cluster0.kq0upog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 client = MongoClient(MONGO_URI)
 db = client["bongo_bd_db"]
@@ -311,7 +310,7 @@ def send_welcome(message):
         bot.send_message(message.chat.id, welcome_caption, reply_markup=markup, parse_mode="Markdown")
 
     if str(user_id) == str(ADMIN_ID):
-        bot.send_message(message.chat.id, "🛠️️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
+        bot.send_message(message.chat.id, "🛠 **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, "নাটক দেখতে উপরের 🎬 WATCH NOW বাটনে ক্লিক করুন।", reply_markup=types.ReplyKeyboardRemove())
 
@@ -589,7 +588,6 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📥 **ভিডিও ফাইলটি পাঠান:**")
 
     elif step == 'video' and (message.video or message.document):
-        # কোনো প্রাইভেট চ্যানেলে ভিডিও না পাঠিয়ে সরাসরি ইউজারের পাঠানো ফাইল আইডি সংরক্ষণ
         file_id = message.video.file_id if message.video else message.document.file_id
 
         data = load_data(force_refresh=True)
