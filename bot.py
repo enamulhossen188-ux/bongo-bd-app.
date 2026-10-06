@@ -8,8 +8,8 @@ import os
 import time
 import requests
 from datetime import datetime
+import urllib.parse
 
-# ২য় বটের নিজস্ব টোকেন ও কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
@@ -31,14 +31,19 @@ cached_data = None
 admin_state = {}
 
 def load_data(force_refresh=True):
+    global cached_data
     try:
         r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=12)
         if r.status_code == 200:
             res = r.json().get("record", {})
             if isinstance(res, dict) and "videos" in res:
-                return res
+                cached_data = res
+                return cached_data
     except Exception as e:
         print("JSONBin Read Error:", e)
+
+    if cached_data:
+        return cached_data
 
     return {
         "users": [],
@@ -50,49 +55,22 @@ def load_data(force_refresh=True):
     }
 
 def save_data(data):
+    global cached_data
+    cached_data = data
     try:
         requests.put(BIN_URL, headers=HEADERS, json=data, timeout=12)
     except Exception as e:
         print("JSONBin Save Error:", e)
 
-# ছবি থেকে স্থায়ী ক্লাউড লিংক তৈরি (যা কখনো কালো বা নষ্ট হবে না)
 def upload_thumb_securely(photo_id):
     try:
         file_info = bot.get_file(photo_id)
-        downloaded = bot.download_file(file_info.file_path)
-        
-        # Freeimage ক্লাউড এপিআই দিয়ে পার্মানেন্ট ডিরেক্ট লিংক তৈরি
-        res = requests.post(
-            "https://freeimage.host/api/1/upload",
-            data={
-                "key": "6d207e02198a847aa98d0a2a901485a5",
-                "action": "upload",
-                "format": "json"
-            },
-            files={"source": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=20
-        )
-        if res.status_code == 200:
-            img_data = res.json()
-            if "image" in img_data and "url" in img_data["image"]:
-                return img_data["image"]["url"]
+        raw_tg_path = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        encoded_path = urllib.parse.quote(raw_tg_path, safe='')
+        return f"https://images.weserv.nl/?url={encoded_path}&w=640&h=360&fit=cover&output=jpg&q=85"
     except Exception as e:
-        print("Freeimage Error:", e)
-
-    # ব্যাকআপ হিসেবে Catbox ক্লাউড
-    try:
-        res2 = requests.post(
-            "https://catbox.moe/user/api.php",
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=15
-        )
-        if res2.status_code == 200 and res2.text.strip().startswith("http"):
-            return res2.text.strip()
-    except Exception as e:
-        print("Catbox Error:", e)
-
-    return "https://placehold.co/640x360/111827/ffffff.png?text=Bongo+BD"
+        print("Thumb Error:", e)
+        return "https://placehold.co/640x360/111827/ffffff.png?text=Thumbnail"
 
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
 def get_app_data():
@@ -201,7 +179,7 @@ def cancel_process(message):
     chat_id = message.chat.id
     if chat_id in admin_state:
         del admin_state[chat_id]
-        bot.send_message(chat_id, "🔄 কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🔄 আগের কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
     else:
         bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
 
@@ -313,4 +291,105 @@ def handle_admin_inputs(message):
         admin_state[chat_id] = {'step': 'category'}
         data = load_data(force_refresh=True)
         cats = data.get("categories", ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"])
-        markup = types.
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        for i in range(0, len(cats), 2):
+            markup.row(*[types.KeyboardButton(c) for c in cats[i:i+2]])
+        bot.send_message(chat_id, "📁 **ভিডিওর ক্যাটাগরি বেছে নিন:**", reply_markup=markup)
+        return
+
+    elif message.text == "🔕 Delete Video":
+        txt, kb = get_delete_view_data(0)
+        if not kb:
+            bot.send_message(chat_id, "❌ কোনো ভিডিও পাওয়া যায়নি!", reply_markup=get_admin_keyboard())
+            return
+        bot.send_message(chat_id, txt, reply_markup=kb, parse_mode="Markdown")
+        return
+
+    elif message.text == "📁 Set Category":
+        bot.send_message(chat_id, "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**", reply_markup=get_category_keyboard())
+        return
+
+    if chat_id not in admin_state: return
+    step = admin_state[chat_id].get('step')
+
+    if step == 'add_single_category' and message.text:
+        new_c = message.text.strip().upper()
+        data = load_data(force_refresh=True)
+        cats = data.get("categories", [])
+        if new_c and new_c not in cats:
+            cats.append(new_c)
+            data["categories"] = cats
+            save_data(data)
+            del admin_state[chat_id]
+            bot.send_message(chat_id, f"✅ **'{new_c}' ক্যাটাগরি যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
+
+    elif step == 'category' and message.text:
+        admin_state[chat_id]['category'] = message.text.strip()
+        admin_state[chat_id]['step'] = 'title'
+        bot.send_message(chat_id, "🎬 **ভিডিওর নাম (Title) লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
+
+    elif step == 'title' and message.text:
+        admin_state[chat_id]['title'] = message.text.strip()
+        admin_state[chat_id]['step'] = 'thumb'
+        bot.send_message(chat_id, "🖼 **থাম্বনেইল ছবি পাঠান (অথবা সরাসরি কোনো ইমেজ লিংক পেস্ট করুন):**")
+
+    elif step == 'thumb' and (message.photo or message.text):
+        if message.photo:
+            bot.send_chat_action(chat_id, 'upload_photo')
+            thumb_url = upload_thumb_securely(message.photo[-1].file_id)
+        else:
+            thumb_url = message.text.strip()
+
+        admin_state[chat_id]['thumb'] = thumb_url
+        admin_state[chat_id]['step'] = 'video'
+        bot.send_message(chat_id, "📥 **ভিডিও ফাইলটি পাঠান:**")
+
+    elif step == 'video' and (message.video or message.document):
+        incoming_file_id = message.video.file_id if message.video else message.document.file_id
+        
+        try:
+            bot.send_chat_action(chat_id, 'upload_video')
+            if message.video:
+                forwarded = bot.send_video(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.video.file_id
+            else:
+                forwarded = bot.send_document(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.document.file_id
+        except Exception as err:
+            print("Channel Backup Error:", err)
+            file_id = incoming_file_id
+
+        data = load_data(force_refresh=True)
+        new_video = {
+            "id": int(time.time()),
+            "category": admin_state[chat_id]['category'],
+            "title": admin_state[chat_id]['title'],
+            "thumb": admin_state[chat_id]['thumb'],
+            "file_id": file_id,
+            "date": datetime.now().strftime("%d %B %Y"),
+            "time": datetime.now().strftime("%I:%M %p")
+        }
+        
+        videos = data.get("videos", [])
+        videos.insert(0, new_video)
+        data["videos"] = videos
+        save_data(data)
+        
+        del admin_state[chat_id]
+        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ক্লাউডে পার্মানেন্টলি সেভ হয়েছে!**", reply_markup=get_admin_keyboard())
+
+def run_bot():
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print("Bot polling reconnecting...", e)
+            time.sleep(3)
+
+if __name__ == "__main__":
+    t = threading.Thread(target=run_bot)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
