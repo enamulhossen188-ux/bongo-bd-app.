@@ -555,11 +555,9 @@
     </div>
 
     <script>
-        // আপনার বর্তমান বটের সঠিক ইউজারনেম
-        const BOT_USERNAME = "BongoBd_ot_Bot";
-        const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
+        
         let appData = { videos: [], categories: [], ads: {} };
         let activeCategory = 'Top';
         let currentSelectedVideo = null;
@@ -586,7 +584,7 @@
 
         async function initData() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/data?_nocache=${Date.now()}`, {
+                const res = await fetch(`/api/data?_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
                 });
@@ -602,8 +600,8 @@
                          ? appData.categories 
                          : ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"];
 
-            if (!activeCategory || !cats.includes(activeCategory)) {
-                activeCategory = cats[0];
+            if (!activeCategory) {
+                activeCategory = 'Top';
             }
 
             renderCategoryTabs();
@@ -631,11 +629,15 @@
 
             let list = appData.videos || [];
 
-            // ক্যাটাগরি কঠোরভাবে ফিল্টার করা
+            // ক্যাটাগরি ফিল্টার: Top হলে সব দেখাবে, অন্য ক্যাটাগরি হলে ফ্লেক্সিবল চেক করবে
             if (activeCategory) {
                 const normActive = activeCategory.trim().toLowerCase();
                 if (normActive !== 'top' && normActive !== 'all') {
-                    list = list.filter(v => (v.category || '').trim().toLowerCase() === normActive);
+                    list = list.filter(v => {
+                        const itemCat = (v.category || '').trim().toLowerCase();
+                        const itemTitle = (v.title || '').trim().toLowerCase();
+                        return itemCat === normActive || itemCat.includes(normActive) || (normActive === 'bps5' && (itemCat.includes('bps5') || itemTitle.includes('bachelor point')));
+                    });
                 }
             }
 
@@ -820,12 +822,16 @@
         document.addEventListener("visibilitychange", handleVisibilityOrFocus);
         window.addEventListener("focus", handleVisibilityOrFocus);
 
-        // সরাসরি আপনার @BongoBd_ot_Bot এ ভিডিও রিকোয়েস্ট পাঠানো
         function sendToInbox() {
             if (!task1Done || !task2Done) return;
 
             if (currentSelectedVideo) {
-                const targetUrl = `https://t.me/${BOT_USERNAME}?start=vid_${currentSelectedVideo.id}`;
+                if (tg && tg.sendData) {
+                    tg.sendData(`vid_${currentSelectedVideo.id}`);
+                }
+                
+                const botUser = tg?.initDataUnsafe?.bot?.username || "BongoBd_bot";
+                const targetUrl = `https://t.me/${botUser}?start=vid_${currentSelectedVideo.id}`;
 
                 if (tg && tg.openTelegramLink) {
                     tg.openTelegramLink(targetUrl);
