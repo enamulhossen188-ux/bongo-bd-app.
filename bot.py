@@ -1,22 +1,3 @@
-import subprocess
-import sys
-
-# সার্ভারে কোনো প্যাকেজ মিসিং থাকলে কোড নিজে থেকেই ইনস্টল করে নেবে
-REQUIRED_PACKAGES = [
-    "pyTelegramBotAPI",
-    "Flask",
-    "Flask-CORS",
-    "requests",
-    "pymongo",
-    "dnspython"
-]
-
-for package in REQUIRED_PACKAGES:
-    try:
-        __import__(package.replace("-", "_").split("[")[0])
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
 import telebot
 from telebot import types
 from flask import Flask, jsonify, make_response, send_file
@@ -29,7 +10,6 @@ from datetime import datetime
 import urllib.parse
 from pymongo import MongoClient
 
-# বটের কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
@@ -38,16 +18,11 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-# MongoDB ক্লাউড ডাটাবেজ কনফিগারেশন
-MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/bongo_bd_db?retryWrites=true&w=majority&appName=Cluster0"
 
-data_col = None
-try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    db = client["bongo_bd_db"]
-    data_col = db["main_data"]
-except Exception as e:
-    print("Initial Mongo connection error:", e)
+client = MongoClient(MONGO_URI, connect=True, maxPoolSize=50)
+db = client.get_database("bongo_bd_db")
+data_col = db["main_data"]
 
 admin_state = {}
 
@@ -63,53 +38,33 @@ def get_default_data():
     }
 
 def load_data(force_refresh=True):
-    global data_col
-    if data_col is not None:
-        try:
-            record = data_col.find_one({"_id": "app_config"})
-            if record:
-                return record
-            else:
-                default_data = get_default_data()
-                data_col.insert_one(default_data)
-                return default_data
-        except Exception as e:
-            print("MongoDB Read Error:", e)
-    return get_default_data()
+    try:
+        record = data_col.find_one({"_id": "app_config"})
+        if record:
+            return record
+        else:
+            default_data = get_default_data()
+            data_col.update_one({"_id": "app_config"}, {"$setOnInsert": default_data}, upsert=True)
+            return default_data
+    except Exception as e:
+        print("MongoDB Read Error:", e)
+        return get_default_data()
 
 def save_data(data):
-    global data_col
-    if data_col is not None:
-        try:
-            data["_id"] = "app_config"
-            data_col.replace_one({"_id": "app_config"}, data, upsert=True)
-        except Exception as e:
-            print("MongoDB Save Error:", e)
+    try:
+        data["_id"] = "app_config"
+        data_col.replace_one({"_id": "app_config"}, data, upsert=True)
+    except Exception as e:
+        print("MongoDB Save Error:", e)
 
 def upload_thumb_securely(photo_id):
-    try:
-        file_info = bot.get_file(photo_id)
-        downloaded = bot.download_file(file_info.file_path)
-        res = requests.post(
-            "https://freeimage.host/api/1/upload",
-            data={"key": "6d207e02198a847aa98d0a2a901485a5", "action": "upload", "format": "json"},
-            files={"source": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=15
-        )
-        if res.status_code == 200:
-            img_data = res.json()
-            if "image" in img_data and "url" in img_data["image"]:
-                return img_data["image"]["url"]
-    except Exception as e:
-        print("Freeimage Error:", e)
-
     try:
         file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
         encoded_url = urllib.parse.quote(tg_url, safe='')
         return f"https://images.weserv.nl/?url={encoded_url}&w=640&h=360&fit=cover&output=jpg&q=85"
     except Exception as e:
-        print("Fallback Thumb Error:", e)
+        print("Thumb Error:", e)
         return "https://placehold.co/640x360/1a1a1a/ffffff.png?text=Bongo+BD"
 
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
@@ -172,7 +127,7 @@ def format_button_label(video):
             return f"🗑️ BP S5 - Ep {ep_no}"
 
     if len(title) > 30:
-        return f"🗑 {title[:28]}.."
+        return f"🗑️ {title[:28]}.."
     return f"🗑 {title}"
 
 def get_delete_view_data(page=0):
@@ -200,7 +155,7 @@ def get_delete_view_data(page=0):
     if page > 0:
         nav_buttons.append(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"delpage_{page-1}"))
     if end_idx < len(videos):
-        nav_buttons.append(types.InlineKeyboardButton("Next ➡", callback_data=f"delpage_{page+1}"))
+        nav_buttons.append(types.InlineKeyboardButton("Next ➡️", callback_data=f"delpage_{page+1}"))
     
     if nav_buttons:
         markup.row(*nav_buttons)
@@ -572,7 +527,6 @@ def handle_admin_inputs(message):
 
     elif step == 'cs_thumb' and (message.photo or message.text):
         if message.photo:
-            bot.send_chat_action(chat_id, 'upload_photo')
             thumb_url = upload_thumb_securely(message.photo[-1].file_id)
         else:
             thumb_url = message.text.strip()
@@ -605,7 +559,6 @@ def handle_admin_inputs(message):
 
     elif step == 'thumb' and (message.photo or message.text):
         if message.photo:
-            bot.send_chat_action(chat_id, 'upload_photo')
             thumb_url = upload_thumb_securely(message.photo[-1].file_id)
         else:
             thumb_url = message.text.strip()
