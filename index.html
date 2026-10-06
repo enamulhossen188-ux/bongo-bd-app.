@@ -242,38 +242,20 @@
             backdrop-filter: blur(14px);
         }
 
-        .rotating-border-box {
-            position: relative;
-            padding: 2px;
+        .static-border-box {
+            width: 100%;
             border-radius: 14px;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             margin-bottom: 12px;
-        }
-
-        .rotating-border-box::before {
-            content: '';
-            position: absolute;
-            width: 150%;
-            height: 300%;
-            background: conic-gradient(transparent, #ff007f, #ff3385, transparent 60%);
-            animation: rotateGlow 3s linear infinite;
-        }
-
-        @keyframes rotateGlow {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            border: 1.5px solid var(--accent-pink);
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.25);
         }
 
         #detailThumb {
             width: 100%;
             aspect-ratio: 16 / 9;
             object-fit: cover;
-            border-radius: 12px;
-            position: relative;
-            z-index: 1;
+            display: block;
             background: #181920;
         }
 
@@ -307,40 +289,21 @@
             margin-bottom: 16px;
         }
 
-        .task-card-animated {
+        /* গোল গোল ঘোরা বাদ দিয়ে স্থায়ী ক্লাসিক ডার্ক বর্ডার */
+        .task-card-clean {
             position: relative;
-            border-radius: 14px;
-            padding: 2px;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .task-card-animated::before {
-            content: '';
-            position: absolute;
-            width: 250%;
-            height: 250%;
-            background: conic-gradient(transparent, transparent, #ff007f, #ff3385, #ff007f);
-            animation: rotateTaskBorder 3.5s linear infinite;
-        }
-
-        @keyframes rotateTaskBorder {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            border-radius: 12px;
+            border: 1.5px solid var(--accent-pink);
+            background: var(--input-bg);
+            box-shadow: 0 0 8px rgba(255, 0, 127, 0.15);
         }
 
         .task-card-row {
-            position: relative;
-            z-index: 2;
             width: 100%;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 12px 14px;
-            background: var(--input-bg);
-            border-radius: 12px;
         }
 
         .task-info-left {
@@ -371,7 +334,7 @@
         }
 
         .visit-action-btn {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            background: #ef4444;
             color: #fff;
             border: none;
             border-radius: 8px;
@@ -526,14 +489,14 @@
         <div class="category-scroll" id="categoryTabs"></div>
 
         <div class="video-grid" id="videoContainer"></div>
-        <div class="empty-msg" id="emptyMessage" style="display: none;">কোনো ভিডিও খুঁজে পাওয়া যায়নি!</div>
+        <div class="empty-msg" id="emptyMessage" style="display: none;">এই ক্যাটাগরিতে কোনো ভিডিও খুঁজে পাওয়া যায়নি!</div>
     </div>
 
     <div class="detail-view" id="detailView">
         <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> ফিরে যান</button>
         <div class="detail-card">
             
-            <div class="rotating-border-box">
+            <div class="static-border-box">
                 <img id="detailThumb" src="" alt="Thumbnail" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Bongo+BD';">
             </div>
 
@@ -547,7 +510,7 @@
             </div>
 
             <div class="task-list">
-                <div class="task-card-animated">
+                <div class="task-card-clean">
                     <div class="task-card-row">
                         <div class="task-info-left">
                             <i id="task1Icon" class="fa-solid fa-circle-check task-icon"></i>
@@ -560,7 +523,7 @@
                     </div>
                 </div>
 
-                <div class="task-card-animated">
+                <div class="task-card-clean">
                     <div class="task-card-row">
                         <div class="task-info-left">
                             <i id="task2Icon" class="fa-solid fa-circle-check task-icon"></i>
@@ -598,7 +561,7 @@
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
         let appData = { videos: [], categories: [], ads: {} };
-        let activeCategory = '';
+        let activeCategory = 'Top';
         let currentSelectedVideo = null;
 
         let task1Done = false;
@@ -639,14 +602,8 @@
                          ? appData.categories 
                          : ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES"];
 
-            // প্রথম ক্যাটাগরি নির্ধারণ
             if (!activeCategory || !cats.includes(activeCategory)) {
-                // যদি প্রথম ক্যাটাগরিতে কোনো ভিডিও না থাকে, যেটায় ভিডিও আছে সেটাই সিলেক্ট করবে
-                let foundCat = cats.find(c => {
-                    const normC = c.replace(/\s+/g, '').toLowerCase();
-                    return (appData.videos || []).some(v => (v.category || '').replace(/\s+/g, '').toLowerCase() === normC);
-                });
-                activeCategory = foundCat || cats[0];
+                activeCategory = cats[0];
             }
 
             renderCategoryTabs();
@@ -661,7 +618,7 @@
             
             let html = '';
             cats.forEach((c) => {
-                const isActive = (activeCategory.replace(/\s+/g, '').toLowerCase() === c.replace(/\s+/g, '').toLowerCase());
+                const isActive = (activeCategory.trim().toLowerCase() === c.trim().toLowerCase());
                 html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}', this)">${c}</div>`;
             });
             tabsContainer.innerHTML = html;
@@ -674,14 +631,11 @@
 
             let list = appData.videos || [];
 
-            // ক্যাটাগরি ফিল্টার: স্পেস ও কেস-সেন্সিটিভিটি মুক্ত করা
+            // সঠিক ক্যাটাগরি ফিল্টারিং (কঠোরভাবে ফিল্টার করা)
             if (activeCategory) {
-                const normActive = activeCategory.replace(/\s+/g, '').toLowerCase();
-                let filtered = list.filter(v => (v.category || '').replace(/\s+/g, '').toLowerCase() === normActive);
-                
-                // যদি এই ক্যাটাগরিতে কোনো ভিডিও না থাকে, তবে খালি পেজ না দেখিয়ে সব ভিডিও ডিসপ্লে করবে
-                if (filtered.length > 0) {
-                    list = filtered;
+                const normActive = activeCategory.trim().toLowerCase();
+                if (normActive !== 'top' && normActive !== 'all') {
+                    list = list.filter(v => (v.category || '').trim().toLowerCase() === normActive);
                 }
             }
 
@@ -898,4 +852,4 @@
         initData();
     </script>
 </body>
-    </html>
+                    </html>
