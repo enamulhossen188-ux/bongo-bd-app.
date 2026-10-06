@@ -289,7 +289,6 @@
             margin-bottom: 16px;
         }
 
-        /* গোল গোল ঘোরা বাদ দিয়ে স্থায়ী ক্লাসিক ডার্ক বর্ডার */
         .task-card-clean {
             position: relative;
             border-radius: 12px;
@@ -556,7 +555,8 @@
     </div>
 
     <script>
-        const BOT_USERNAME = "BongoBd_ott_Bot";
+        // আপনার বর্তমান বটের সঠিক ইউজারনেম
+        const BOT_USERNAME = "BongoBd_ot_Bot";
         const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
@@ -631,7 +631,7 @@
 
             let list = appData.videos || [];
 
-            // সঠিক ক্যাটাগরি ফিল্টারিং (কঠোরভাবে ফিল্টার করা)
+            // ক্যাটাগরি কঠোরভাবে ফিল্টার করা
             if (activeCategory) {
                 const normActive = activeCategory.trim().toLowerCase();
                 if (normActive !== 'top' && normActive !== 'all') {
@@ -820,12 +820,12 @@
         document.addEventListener("visibilitychange", handleVisibilityOrFocus);
         window.addEventListener("focus", handleVisibilityOrFocus);
 
+        // সরাসরি আপনার @BongoBd_ot_Bot এ ভিডিও রিকোয়েস্ট পাঠানো
         function sendToInbox() {
             if (!task1Done || !task2Done) return;
 
             if (currentSelectedVideo) {
-                const startParam = `vid_${currentSelectedVideo.id}`;
-                const targetUrl = `https://t.me/${BOT_USERNAME}?start=${startParam}`;
+                const targetUrl = `https://t.me/${BOT_USERNAME}?start=vid_${currentSelectedVideo.id}`;
 
                 if (tg && tg.openTelegramLink) {
                     tg.openTelegramLink(targetUrl);
@@ -852,4 +852,4 @@
         initData();
     </script>
 </body>
-                    </html>
+    </html>
