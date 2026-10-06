@@ -10,10 +10,13 @@ import requests
 from datetime import datetime
 import urllib.parse
 
-# ২য় বটের নিজস্ব টোকেন ও Render সার্ভার কনফিগারেশন
+# ২য় বটের নিজস্ব টোকেন ও কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
+
+# আপনার প্রাইভেট ক্লাউড স্টোরেজ চ্যানেল আইডি
+STORAGE_CHANNEL_ID = -1003902807907
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
@@ -92,7 +95,7 @@ def upload_thumb_securely(photo_id):
         file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
         encoded_url = urllib.parse.quote(tg_url, safe='')
-        return f"https://images.weserv.nl/?url={encoded_url}&default=https://placehold.co/640x360?text=Thumbnail"
+        return f"https://images.weserv.nl/?url=${encoded_url}&default=https://placehold.co/640x360?text=Thumbnail"
     except Exception as e:
         print("Fallback Thumb Error:", e)
         return "https://placehold.co/640x360?text=Bongo+BD"
@@ -156,7 +159,7 @@ def format_button_label(video):
 
     if len(title) > 30:
         return f"🗑️ {title[:28]}.."
-    return f"🗑️️ {title}"
+    return f"🗑 {title}"
 
 def get_delete_view_data(page=0):
     data = load_data(force_refresh=True)
@@ -579,7 +582,21 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📥 **ভিডিও ফাইলটি পাঠান:**")
 
     elif step == 'video' and (message.video or message.document):
-        file_id = message.video.file_id if message.video else message.document.file_id
+        incoming_file_id = message.video.file_id if message.video else message.document.file_id
+        
+        # স্বয়ংক্রিয়ভাবে আপনার প্রাইভেট ব্যাকআপ চ্যানেলে ফাইল পোস্ট করা
+        try:
+            bot.send_chat_action(chat_id, 'upload_video')
+            if message.video:
+                forwarded = bot.send_video(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.video.file_id
+            else:
+                forwarded = bot.send_document(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.document.file_id
+        except Exception as err:
+            print("Channel Backup Error:", err)
+            file_id = incoming_file_id
+
         data = load_data(force_refresh=True)
         new_video = {
             "id": int(time.time()),
@@ -593,7 +610,7 @@ def handle_admin_inputs(message):
         data.setdefault("videos", []).insert(0, new_video)
         save_data(data)
         del admin_state[chat_id]
-        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড হয়েছে!**", reply_markup=get_admin_keyboard())
+        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ক্লাউডে ব্যাকআপ হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'welcome_video' and message.video:
         data = load_data(force_refresh=True)
