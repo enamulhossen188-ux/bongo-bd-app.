@@ -1,3 +1,22 @@
+import subprocess
+import sys
+
+# প্যাকেজ স্বয়ংক্রিয়ভাবে নিশ্চিত করার অংশ
+REQUIRED_PACKAGES = [
+    "pyTelegramBotAPI",
+    "Flask",
+    "Flask-CORS",
+    "requests",
+    "pymongo",
+    "dnspython"
+]
+
+for package in REQUIRED_PACKAGES:
+    try:
+        __import__(package.replace("-", "_").split("[")[0])
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 import telebot
 from telebot import types
 from flask import Flask, jsonify, make_response, send_file
@@ -10,6 +29,7 @@ from datetime import datetime
 import urllib.parse
 from pymongo import MongoClient
 
+# কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
@@ -20,7 +40,7 @@ CORS(app)
 
 MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/bongo_bd_db?retryWrites=true&w=majority&appName=Cluster0"
 
-client = MongoClient(MONGO_URI, connect=True, maxPoolSize=50)
+client = MongoClient(MONGO_URI, connect=True, maxPoolSize=50, serverSelectionTimeoutMS=5000)
 db = client.get_database("bongo_bd_db")
 data_col = db["main_data"]
 
@@ -127,7 +147,7 @@ def format_button_label(video):
             return f"🗑️ BP S5 - Ep {ep_no}"
 
     if len(title) > 30:
-        return f"🗑️ {title[:28]}.."
+        return f"🗑️️ {title[:28]}.."
     return f"🗑 {title}"
 
 def get_delete_view_data(page=0):
