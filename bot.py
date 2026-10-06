@@ -10,22 +10,17 @@ import requests
 from datetime import datetime
 import urllib.parse
 
-# ২য় বটের নিজস্ব টোকেন ও কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHskUrqeMrwwAYtGR7PDamWRt9EMEOwopA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
-
-# আপনার প্রাইভেট ক্লাউড স্টোরেজ চ্যানেল আইডি
 STORAGE_CHANNEL_ID = -1003902807907
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-# ২য় বটের নিজস্ব ক্লাউড ডাটাবেজ
 BIN_ID = "6ac43001ac6210605a17383a"
 JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
-
 BIN_URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 HEADERS = {
     "X-Master-Key": JSONBIN_API_KEY,
@@ -33,23 +28,17 @@ HEADERS = {
 }
 
 cached_data = None
-last_cache_time = 0
-CACHE_DURATION = 0
-
 admin_state = {}
 
 def load_data(force_refresh=True):
-    global cached_data, last_cache_time
+    global cached_data
     try:
         r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=10)
         if r.status_code == 200:
             cached_data = r.json().get("record", {})
-            last_cache_time = time.time()
             return cached_data
-        else:
-            print("JSONBin Read Error Status:", r.status_code)
     except Exception as e:
-        print("JSONBin Read Exception:", e)
+        print("JSONBin Read Error:", e)
 
     if cached_data:
         return cached_data
@@ -64,41 +53,23 @@ def load_data(force_refresh=True):
     }
 
 def save_data(data):
-    global cached_data, last_cache_time
+    global cached_data
     cached_data = data
-    last_cache_time = time.time()
     try:
-        r = requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
-        if r.status_code != 200:
-            print(f"JSONBin Save Failed! Code: {r.status_code}, Body: {r.text}")
-        else:
-            print("JSONBin Save Success!")
+        requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
     except Exception as e:
         print("JSONBin Save Error:", e)
 
 def upload_thumb_securely(photo_id):
     try:
         file_info = bot.get_file(photo_id)
-        downloaded = bot.download_file(file_info.file_path)
-        res = requests.post(
-            "https://catbox.moe/user/api.php",
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=15
-        )
-        if res.status_code == 200 and res.text.strip().startswith("http"):
-            return res.text.strip()
-    except Exception as e:
-        print("Catbox Upload Error:", e)
-
-    try:
-        file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
         encoded_url = urllib.parse.quote(tg_url, safe='')
-        return f"https://images.weserv.nl/?url={encoded_url}&output=jpg&q=85&default=https://placehold.co/640x360/1a1a1a/ffffff?text=Thumbnail"
+        # নিরাপদ ও দ্রুত লোড হওয়ার জন্য নির্ভরযোগ্য CDN ইমেজ প্রক্সি
+        return f"https://images.weserv.nl/?url={encoded_url}&output=jpg&q=80"
     except Exception as e:
-        print("Fallback Thumb Error:", e)
-        return "https://placehold.co/640x360/1a1a1a/ffffff?text=Thumbnail"
+        print("Thumb URL Error:", e)
+        return "https://placehold.co/640x360/111827/ffffff?text=Thumbnail"
 
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
 def get_app_data():
@@ -143,23 +114,9 @@ def get_admin_keyboard():
 
 def format_button_label(video):
     title = video.get('title', 'Video').strip()
-    is_cs = video.get("is_coming_soon") or video.get("category") == "COMING SOON"
-
-    if is_cs:
-        return f"🗑 [📢 CS] {title[:25]}"
-
-    lower_t = title.lower()
-    if "bachelor point" in lower_t:
-        clean = title
-        for phrase in ["bachelor point", "season 5", "season-5", "s5", "episode", "ep"]:
-            clean = clean.replace(phrase, "").replace("[", "").replace("]", "").strip()
-        ep_no = "".join([c for c in clean if c.isdigit() or c in ['-', ' ']]).strip()
-        if ep_no:
-            return f"🗑️ BP S5 - Ep {ep_no}"
-
     if len(title) > 30:
-        return f"🗑️ {title[:28]}.."
-    return f"🗑 {title}"
+        return f"🗑️️ {title[:28]}.."
+    return f"🗑️ {title}"
 
 def get_delete_view_data(page=0):
     data = load_data(force_refresh=True)
@@ -176,9 +133,7 @@ def get_delete_view_data(page=0):
     markup = types.InlineKeyboardMarkup()
 
     for idx, v in enumerate(current_videos, start=start_idx + 1):
-        is_cs = v.get("is_coming_soon") or v.get("category") == "COMING SOON"
-        tag = " [📢 COMING SOON]" if is_cs else ""
-        text_msg += f"**{idx}.** {v.get('title')}{tag}\n"
+        text_msg += f"**{idx}.** {v.get('title')}\n"
         btn_label = f"{idx}. {format_button_label(v)}"
         markup.add(types.InlineKeyboardButton(btn_label, callback_data=f"delvid_{v.get('id')}_{page}"))
 
@@ -206,24 +161,6 @@ def get_category_keyboard():
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return markup
 
-@bot.my_chat_member_handler()
-def handle_bot_blocked_or_unblocked(update: types.ChatMemberUpdated):
-    user_id = update.chat.id
-    new_status = update.new_chat_member.status
-    data = load_data(force_refresh=True)
-    users = data.get("users", [])
-
-    if new_status in ["kicked", "left"]:
-        if user_id in users:
-            users.remove(user_id)
-            data["users"] = users
-            save_data(data)
-    elif new_status == "member":
-        if user_id not in users:
-            users.append(user_id)
-            data["users"] = users
-            save_data(data)
-
 @bot.message_handler(commands=['admin'])
 def open_admin_panel(message):
     if str(message.chat.id) != str(ADMIN_ID):
@@ -241,37 +178,9 @@ def cancel_process(message):
     chat_id = message.chat.id
     if chat_id in admin_state:
         del admin_state[chat_id]
-        bot.send_message(chat_id, "🔄 আগের অসমাপ্ত কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🔄 আগের কাজ বাতিল করা হয়েছে।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
     else:
         bot.send_message(chat_id, "বর্তমানে কোনো কাজ চালু নেই।", reply_markup=get_admin_keyboard() if str(chat_id) == str(ADMIN_ID) else types.ReplyKeyboardRemove())
-
-@bot.message_handler(commands=['users', 'stats'])
-def show_total_users(message):
-    if str(message.chat.id) != str(ADMIN_ID): return
-    data = load_data(force_refresh=True)
-    user_list = data.get("users", [])
-    active_users = []
-    removed_any = False
-
-    for uid in user_list:
-        try:
-            bot.send_chat_action(uid, 'typing')
-            active_users.append(uid)
-            time.sleep(0.02)
-        except Exception:
-            removed_any = True
-
-    if removed_any:
-        data["users"] = active_users
-        save_data(data)
-
-    msg_text = (
-        "📊 **বটের ইউজার পরিসংখ্যান**\n\n"
-        f"👥 মোট সক্রিয় ইউজার: **{len(active_users)}** জন\n"
-        f"🎬 মোট ভিডিও: **{len(data.get('videos', []))}** টি\n"
-        f"📁 মোট ক্যাটাগরি: **{len(data.get('categories', []))}** টি"
-    )
-    bot.send_message(message.chat.id, msg_text, parse_mode="Markdown")
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -310,8 +219,6 @@ def send_welcome(message):
 
     if str(user_id) == str(ADMIN_ID):
         bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
-    else:
-        bot.send_message(message.chat.id, "নাটক দেখতে উপরের 🎬 WATCH NOW বাটনে ক্লিক করুন।", reply_markup=types.ReplyKeyboardRemove())
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -338,14 +245,6 @@ def handle_callbacks(call):
         bot.answer_callback_query(call.id, "বন্ধ করা হয়েছে!")
         return
 
-    if call.data.startswith("delpage_"):
-        page = int(call.data.split("_")[1])
-        txt, kb = get_delete_view_data(page)
-        if kb:
-            bot.edit_message_text(txt, chat_id, call.message.message_id, reply_markup=kb, parse_mode="Markdown")
-        bot.answer_callback_query(call.id)
-        return
-
     if call.data.startswith("delvid_"):
         parts = call.data.split("_")
         del_id = parts[1]
@@ -362,7 +261,7 @@ def handle_callbacks(call):
         if kb:
             bot.edit_message_text(txt, chat_id, call.message.message_id, reply_markup=kb, parse_mode="Markdown")
         else:
-            bot.edit_message_text("❌ আর কোনো ভিডিও বা পোস্ট নেই!", chat_id, call.message.message_id)
+            bot.edit_message_text("❌ আর কোনো ভিডিও নেই!", chat_id, call.message.message_id)
         return
 
     if call.data.startswith("delcat_"):
@@ -373,10 +272,8 @@ def handle_callbacks(call):
             cats.remove(cat_to_del)
             data["categories"] = cats
             save_data(data)
-            bot.answer_callback_query(call.id, f"✅ '{cat_to_del}' ক্যাটাগরি মুছে ফেলা হয়েছে!", show_alert=True)
+            bot.answer_callback_query(call.id, f"✅ '{cat_to_del}' মুছে ফেলা হয়েছে!", show_alert=True)
             bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=get_category_keyboard())
-        else:
-            bot.answer_callback_query(call.id, "পাওয়া যায়নি!")
         return
 
     if call.data == "add_new_category":
@@ -400,75 +297,22 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📁 **ভিডিওর ক্যাটাগরি বেছে নিন:**", reply_markup=markup)
         return
 
-    elif message.text == "📢 Add Coming Soon":
-        admin_state[chat_id] = {'step': 'cs_title', 'category': 'COMING SOON', 'is_coming_soon': True}
-        bot.send_message(chat_id, "🎬 **কামিং সুন ভিডিওর টাইটেল লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
-        return
-
     elif message.text == "🔕 Delete Video":
         txt, kb = get_delete_view_data(0)
         if not kb:
-            bot.send_message(chat_id, "❌ কোনো ভিডিও বা কামিং সুন পোস্ট পাওয়া যায়নি!", reply_markup=get_admin_keyboard())
+            bot.send_message(chat_id, "❌ কোনো ভিডিও পাওয়া যায়নি!", reply_markup=get_admin_keyboard())
             return
         bot.send_message(chat_id, txt, reply_markup=kb, parse_mode="Markdown")
         return
 
-    elif message.text == "📊 Total Users":
-        show_total_users(message)
-        return
-
     elif message.text == "📁 Set Category":
-        bot.send_message(
-            chat_id,
-            "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**\nমুছতে নামের পাশের বাটনে ক্লিক করুন অথবা নতুন যোগ করুন:",
-            reply_markup=get_category_keyboard()
-        )
-        return
-
-    elif message.text == "🎯 Set Ads Link":
-        admin_state[chat_id] = {'step': 'ad_1'}
-        bot.send_message(chat_id, "🎯 **Task 1 এর এড লিংক (URL) পাঠান:**\n(বাতিল করতে /cancel লিখুন)", reply_markup=types.ReplyKeyboardRemove())
-        return
-
-    elif message.text == "🎥 Set Welcome Video":
-        admin_state[chat_id] = {'step': 'welcome_video'}
-        bot.send_message(chat_id, "🎥 **স্টার্টের সময় যে ভিডিওটি শো করবে সেটি পাঠান:**")
-        return
-
-    elif message.text == "🔔 Set Video Update":
-        admin_state[chat_id] = {'step': 'set_video_update'}
-        data = load_data(force_refresh=True)
-        current_up = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
-        bot.send_message(
-            chat_id, 
-            f"🔔 **বর্তমানে সেভ করা ভিডিও আপডেট:**\n`{current_up}`\n\nইউজাররা যখন 'VIDEO UPDATE' বাটনে চাপ দিবে তখন কী মেসেজ দেখাবে তা লিখে পাঠান:\n(বাতিল করতে /cancel লিখুন)",
-            parse_mode="Markdown",
-            reply_markup=types.ReplyKeyboardRemove()
-        )
-        return
-
-    elif message.text == "📢 BOT NOTICE":
-        admin_state[chat_id] = {'step': 'notice_input'}
-        bot.send_message(
-            chat_id, 
-            "🖼 **নোটিশের ছবি (Photo) পাঠান (ছবির সাথে ক্যাপশনে লেখা দিতে পারেন) অথবা শুধু মেসেজ লিখুন:**\n(বাতিল করতে /cancel লিখুন)", 
-            reply_markup=types.ReplyKeyboardRemove()
-        )
+        bot.send_message(chat_id, "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**", reply_markup=get_category_keyboard())
         return
 
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    if step == 'set_video_update' and message.text:
-        new_notice = message.text.strip()
-        data = load_data(force_refresh=True)
-        data["update_notice"] = new_notice
-        save_data(data)
-        del admin_state[chat_id]
-        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট সফলভাবে সেট করা হয়েছে!**\n\n\"{new_notice}\"", reply_markup=get_admin_keyboard())
-        return
-
-    elif step == 'add_single_category' and message.text:
+    if step == 'add_single_category' and message.text:
         new_c = message.text.strip()
         data = load_data(force_refresh=True)
         cats = data.get("categories", [])
@@ -477,24 +321,71 @@ def handle_admin_inputs(message):
             data["categories"] = cats
             save_data(data)
             del admin_state[chat_id]
-            bot.send_message(chat_id, f"✅ **'{new_c}' ক্যাটাগরি সফলভাবে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
+            bot.send_message(chat_id, f"✅ **'{new_c}' ক্যাটাগরি যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
+
+    elif step == 'category' and message.text:
+        admin_state[chat_id]['category'] = message.text.strip()
+        admin_state[chat_id]['step'] = 'title'
+        bot.send_message(chat_id, "🎬 **ভিডিওর নাম (Title) লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
+
+    elif step == 'title' and message.text:
+        admin_state[chat_id]['title'] = message.text.strip()
+        admin_state[chat_id]['step'] = 'thumb'
+        bot.send_message(chat_id, "🖼 **থাম্বনেইল ছবি পাঠান:**")
+
+    elif step == 'thumb' and (message.photo or message.text):
+        if message.photo:
+            bot.send_chat_action(chat_id, 'upload_photo')
+            thumb_url = upload_thumb_securely(message.photo[-1].file_id)
         else:
-            bot.send_message(chat_id, "⚠️ এই ক্যাটাগরি ইতিমধ্যে রয়েছে অথবা ভুল নাম দিয়েছেন।")
+            thumb_url = message.text.strip()
 
-    elif step == 'ad_1' and message.text:
-        admin_state[chat_id]['ad1'] = message.text.strip()
-        admin_state[chat_id]['step'] = 'ad_2'
-        bot.send_message(chat_id, "🎯 **এবার Task 2 এর এড লিংক (URL) পাঠান:**")
+        admin_state[chat_id]['thumb'] = thumb_url
+        admin_state[chat_id]['step'] = 'video'
+        bot.send_message(chat_id, "📥 **ভিডিও ফাইলটি পাঠান:**")
 
-    elif step == 'ad_2' and message.text:
+    elif step == 'video' and (message.video or message.document):
+        incoming_file_id = message.video.file_id if message.video else message.document.file_id
+        
+        try:
+            bot.send_chat_action(chat_id, 'upload_video')
+            if message.video:
+                forwarded = bot.send_video(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.video.file_id
+            else:
+                forwarded = bot.send_document(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
+                file_id = forwarded.document.file_id
+        except Exception as err:
+            print("Channel Backup Error:", err)
+            file_id = incoming_file_id
+
         data = load_data(force_refresh=True)
-        data["ads"] = {
-            "ad1": admin_state[chat_id]['ad1'],
-            "ad2": message.text.strip()
+        new_video = {
+            "id": int(time.time()),
+            "category": admin_state[chat_id]['category'],
+            "title": admin_state[chat_id]['title'],
+            "thumb": admin_state[chat_id]['thumb'],
+            "file_id": file_id,
+            "date": datetime.now().strftime("%d %B %Y"),
+            "time": datetime.now().strftime("%I:%M %p")
         }
+        data.setdefault("videos", []).insert(0, new_video)
         save_data(data)
         del admin_state[chat_id]
-        bot.send_message(chat_id, "✅ **বিজ্ঞাপনের লিংক দুটি আপডেট হয়েছে!**", reply_markup=get_admin_keyboard())
+        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ব্যাকআপ হয়েছে!**", reply_markup=get_admin_keyboard())
 
-    elif step == 'notice_input' and (message.photo or message.text):
-        data = load_data(force_refresh=True)
+def run_bot():
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print("Bot polling reconnecting...", e)
+            time.sleep(3)
+
+if __name__ == "__main__":
+    t = threading.Thread(target=run_bot)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
