@@ -1,3 +1,22 @@
+import subprocess
+import sys
+
+# সার্ভারে কোনো প্যাকেজ মিসিং থাকলে কোড নিজে থেকেই ইনস্টল করে নেবে
+REQUIRED_PACKAGES = [
+    "pyTelegramBotAPI",
+    "Flask",
+    "Flask-CORS",
+    "requests",
+    "pymongo",
+    "dnspython"
+]
+
+for package in REQUIRED_PACKAGES:
+    try:
+        __import__(package.replace("-", "_").split("[")[0])
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 import telebot
 from telebot import types
 from flask import Flask, jsonify, make_response, send_file
@@ -10,7 +29,7 @@ from datetime import datetime
 import urllib.parse
 from pymongo import MongoClient
 
-# বটের নিজস্ব টোকেন ও কনফিগারেশন
+# বটের কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
@@ -19,12 +38,16 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-# MongoDB Atlas ক্লাউড ডাটাবেজ কনফিগারেশন
+# MongoDB ক্লাউড ডাটাবেজ কনফিগারেশন
 MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-client = MongoClient(MONGO_URI)
-db = client["bongo_bd_db"]
-data_col = db["main_data"]
+data_col = None
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    db = client["bongo_bd_db"]
+    data_col = db["main_data"]
+except Exception as e:
+    print("Initial Mongo connection error:", e)
 
 admin_state = {}
 
@@ -40,24 +63,28 @@ def get_default_data():
     }
 
 def load_data(force_refresh=True):
-    try:
-        record = data_col.find_one({"_id": "app_config"})
-        if record:
-            return record
-        else:
-            default_data = get_default_data()
-            data_col.insert_one(default_data)
-            return default_data
-    except Exception as e:
-        print("MongoDB Read Error:", e)
-        return get_default_data()
+    global data_col
+    if data_col is not None:
+        try:
+            record = data_col.find_one({"_id": "app_config"})
+            if record:
+                return record
+            else:
+                default_data = get_default_data()
+                data_col.insert_one(default_data)
+                return default_data
+        except Exception as e:
+            print("MongoDB Read Error:", e)
+    return get_default_data()
 
 def save_data(data):
-    try:
-        data["_id"] = "app_config"
-        data_col.replace_one({"_id": "app_config"}, data, upsert=True)
-    except Exception as e:
-        print("MongoDB Save Error:", e)
+    global data_col
+    if data_col is not None:
+        try:
+            data["_id"] = "app_config"
+            data_col.replace_one({"_id": "app_config"}, data, upsert=True)
+        except Exception as e:
+            print("MongoDB Save Error:", e)
 
 def upload_thumb_securely(photo_id):
     try:
@@ -145,7 +172,7 @@ def format_button_label(video):
             return f"🗑️ BP S5 - Ep {ep_no}"
 
     if len(title) > 30:
-        return f"🗑️️ {title[:28]}.."
+        return f"🗑 {title[:28]}.."
     return f"🗑 {title}"
 
 def get_delete_view_data(page=0):
@@ -173,7 +200,7 @@ def get_delete_view_data(page=0):
     if page > 0:
         nav_buttons.append(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"delpage_{page-1}"))
     if end_idx < len(videos):
-        nav_buttons.append(types.InlineKeyboardButton("Next ➡️️", callback_data=f"delpage_{page+1}"))
+        nav_buttons.append(types.InlineKeyboardButton("Next ➡", callback_data=f"delpage_{page+1}"))
     
     if nav_buttons:
         markup.row(*nav_buttons)
