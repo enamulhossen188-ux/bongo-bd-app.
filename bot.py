@@ -27,21 +27,17 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-cached_data = None
 admin_state = {}
 
 def load_data(force_refresh=True):
-    global cached_data
     try:
-        r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=10)
+        r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=12)
         if r.status_code == 200:
-            cached_data = r.json().get("record", {})
-            return cached_data
+            res = r.json().get("record", {})
+            if isinstance(res, dict) and "videos" in res:
+                return res
     except Exception as e:
         print("JSONBin Read Error:", e)
-
-    if cached_data:
-        return cached_data
 
     return {
         "users": [],
@@ -53,23 +49,22 @@ def load_data(force_refresh=True):
     }
 
 def save_data(data):
-    global cached_data
-    cached_data = data
     try:
-        requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
+        r = requests.put(BIN_URL, headers=HEADERS, json=data, timeout=12)
+        print("JSONBin Saved Status:", r.status_code)
     except Exception as e:
         print("JSONBin Save Error:", e)
 
 def upload_thumb_securely(photo_id):
     try:
         file_info = bot.get_file(photo_id)
-        tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
-        encoded_url = urllib.parse.quote(tg_url, safe='')
-        # নিরাপদ ও দ্রুত লোড হওয়ার জন্য নির্ভরযোগ্য CDN ইমেজ প্রক্সি
-        return f"https://images.weserv.nl/?url={encoded_url}&output=jpg&q=80"
+        # টেলিগ্রামের মূল ফাইল লিংক সরাসরি weserv এর মাধ্যমে ক্রপ ও হাই-কোয়ালিটি কনভার্ট
+        raw_tg_path = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+        encoded_path = urllib.parse.quote(raw_tg_path, safe='')
+        return f"https://images.weserv.nl/?url={encoded_path}&w=640&h=360&fit=cover&output=jpg&q=85"
     except Exception as e:
-        print("Thumb URL Error:", e)
-        return "https://placehold.co/640x360/111827/ffffff?text=Thumbnail"
+        print("Thumb Processing Error:", e)
+        return "https://placehold.co/640x360/222222/ffffff.png?text=Thumbnail"
 
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
 def get_app_data():
@@ -115,7 +110,7 @@ def get_admin_keyboard():
 def format_button_label(video):
     title = video.get('title', 'Video').strip()
     if len(title) > 30:
-        return f"🗑️️ {title[:28]}.."
+        return f"🗑 {title[:28]}.."
     return f"🗑️ {title}"
 
 def get_delete_view_data(page=0):
@@ -133,7 +128,7 @@ def get_delete_view_data(page=0):
     markup = types.InlineKeyboardMarkup()
 
     for idx, v in enumerate(current_videos, start=start_idx + 1):
-        text_msg += f"**{idx}.** {v.get('title')}\n"
+        text_msg += f"**{idx}.** {v.get('title')} ({v.get('category')})\n"
         btn_label = f"{idx}. {format_button_label(v)}"
         markup.add(types.InlineKeyboardButton(btn_label, callback_data=f"delvid_{v.get('id')}_{page}"))
 
@@ -252,8 +247,7 @@ def handle_callbacks(call):
 
         data = load_data(force_refresh=True)
         videos = data.get("videos", [])
-        new_videos = [v for v in videos if str(v.get('id')) != str(del_id)]
-        data["videos"] = new_videos
+        data["videos"] = [v for v in videos if str(v.get('id')) != str(del_id)]
         save_data(data)
 
         bot.answer_callback_query(call.id, "✅ সফলভাবে ডিলিট করা হয়েছে!", show_alert=True)
@@ -265,7 +259,7 @@ def handle_callbacks(call):
         return
 
     if call.data.startswith("delcat_"):
-        cat_to_del = call.data.replace("delcat_", "")
+        cat_to_del = call.data.replace("delcat_", "").strip()
         data = load_data(force_refresh=True)
         cats = data.get("categories", [])
         if cat_to_del in cats:
@@ -313,7 +307,7 @@ def handle_admin_inputs(message):
     step = admin_state[chat_id].get('step')
 
     if step == 'add_single_category' and message.text:
-        new_c = message.text.strip()
+        new_c = message.text.strip().upper()
         data = load_data(force_refresh=True)
         cats = data.get("categories", [])
         if new_c and new_c not in cats:
@@ -369,10 +363,15 @@ def handle_admin_inputs(message):
             "date": datetime.now().strftime("%d %B %Y"),
             "time": datetime.now().strftime("%I:%M %p")
         }
-        data.setdefault("videos", []).insert(0, new_video)
+        
+        # ডাটাবেজে পার্মানেন্ট সেভ
+        videos = data.get("videos", [])
+        videos.insert(0, new_video)
+        data["videos"] = videos
         save_data(data)
+        
         del admin_state[chat_id]
-        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ব্যাকআপ হয়েছে!**", reply_markup=get_admin_keyboard())
+        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ডাটাবেজে স্থায়ীভাবে ব্যাকআপ হয়েছে!**", reply_markup=get_admin_keyboard())
 
 def run_bot():
     while True:
