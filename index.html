@@ -302,7 +302,6 @@
 
             let list = appData.videos || [];
 
-            // ক্যাটাগরি ফিল্টার
             if (activeCategory.toLowerCase() !== 'top' && activeCategory.toLowerCase() !== 'all') {
                 list = list.filter(v => {
                     const c = (v.category || '').toLowerCase();
