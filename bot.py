@@ -1,60 +1,37 @@
-import telebot
+ import telebot
 from telebot import types
 from flask import Flask, jsonify, make_response, send_file
 from flask_cors import CORS
 import threading
-import json
 import os
 import time
 import requests
 from datetime import datetime
 import urllib.parse
+from pymongo import MongoClient
 
 # ২য় বটের নিজস্ব টোকেন ও কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
 
-# আপনার প্রাইভেট ক্লাউড স্টোরেজ চ্যানেল আইডি
-STORAGE_CHANNEL_ID = -1003902807907
-
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-# ২য় বটের নিজস্ব ক্লাউড ডাটাবেজ
-BIN_ID = "6ac43001ac6210605a17383a"
-JSONBIN_API_KEY = "$2a$10$YXJkOPYEpFL1pS32JSWh7O5Zs7VMzulVbyfBwxBkvPOQ9EY1m0/ri"
+# MongoDB Atlas ক্লাউড ডাটাবেজ কনফিগারেশন
+# নিচের <db_password> এর জায়গায় আপনার তৈরি করা আসল ডাটাবেজ পাসওয়ার্ডটি দিন
+MONGO_URI = "mongodb+srv://enamulhossen473_db_user:<db_password>@cluster0.kq0upog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-BIN_URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
-HEADERS = {
-    "X-Master-Key": JSONBIN_API_KEY,
-    "Content-Type": "application/json"
-}
-
-cached_data = None
-last_cache_time = 0
-CACHE_DURATION = 0
+client = MongoClient(MONGO_URI)
+db = client["bongo_bd_db"]
+data_col = db["main_data"]
 
 admin_state = {}
 
-def load_data(force_refresh=True):
-    global cached_data, last_cache_time
-    try:
-        r = requests.get(f"{BIN_URL}/latest", headers=HEADERS, timeout=10)
-        if r.status_code == 200:
-            cached_data = r.json().get("record", {})
-            last_cache_time = time.time()
-            return cached_data
-        else:
-            print("JSONBin Read Error Status:", r.status_code)
-    except Exception as e:
-        print("JSONBin Read Exception:", e)
-
-    if cached_data:
-        return cached_data
-
+def get_default_data():
     return {
+        "_id": "app_config",
         "users": [],
         "categories": ["Top", "BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"],
         "ads": {"ad1": "https://google.com", "ad2": "https://google.com"},
@@ -63,18 +40,25 @@ def load_data(force_refresh=True):
         "videos": []
     }
 
-def save_data(data):
-    global cached_data, last_cache_time
-    cached_data = data
-    last_cache_time = time.time()
+def load_data(force_refresh=True):
     try:
-        r = requests.put(BIN_URL, headers=HEADERS, json=data, timeout=10)
-        if r.status_code != 200:
-            print(f"JSONBin Save Failed! Code: {r.status_code}, Body: {r.text}")
+        record = data_col.find_one({"_id": "app_config"})
+        if record:
+            return record
         else:
-            print("JSONBin Save Success!")
+            default_data = get_default_data()
+            data_col.insert_one(default_data)
+            return default_data
     except Exception as e:
-        print("JSONBin Save Error:", e)
+        print("MongoDB Read Error:", e)
+        return get_default_data()
+
+def save_data(data):
+    try:
+        data["_id"] = "app_config"
+        data_col.replace_one({"_id": "app_config"}, data, upsert=True)
+    except Exception as e:
+        print("MongoDB Save Error:", e)
 
 def upload_thumb_securely(photo_id):
     try:
@@ -105,6 +89,8 @@ def upload_thumb_securely(photo_id):
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
 def get_app_data():
     data = load_data(force_refresh=True)
+    if "_id" in data:
+        del data["_id"]
     resp = make_response(jsonify(data))
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
@@ -286,7 +272,6 @@ def send_welcome(message):
         save_data(data)
 
     text_parts = message.text.split()
-    # নির্দিষ্ট ভিডিও ডাউনলোডের রিকোয়েস্ট চেক
     if len(text_parts) > 1 and text_parts[1].startswith("vid_"):
         video_id = text_parts[1].replace("vid_", "").strip()
         target_video = None
@@ -326,7 +311,7 @@ def send_welcome(message):
         bot.send_message(message.chat.id, welcome_caption, reply_markup=markup, parse_mode="Markdown")
 
     if str(user_id) == str(ADMIN_ID):
-        bot.send_message(message.chat.id, "🛠️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
+        bot.send_message(message.chat.id, "🛠️️ **এডমিন প্যানেল সচল করা হয়েছে:**", reply_markup=get_admin_keyboard(), parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, "নাটক দেখতে উপরের 🎬 WATCH NOW বাটনে ক্লিক করুন।", reply_markup=types.ReplyKeyboardRemove())
 
@@ -409,7 +394,6 @@ def handle_admin_inputs(message):
 
     msg_txt = (message.text or "").strip()
 
-    # অ্যাডমিন কিবোর্ডের বাটনসমূহ নিশ্চিতভাবে চেক করা
     if "Add Video" in msg_txt:
         admin_state[chat_id] = {'step': 'category'}
         data = load_data(force_refresh=True)
@@ -502,7 +486,7 @@ def handle_admin_inputs(message):
             del admin_state[chat_id]
             bot.send_message(chat_id, f"✅ **'{new_c}' ক্যাটাগরি সফলভাবে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
         else:
-            bot.send_message(chat_id, "⚠️️ এই ক্যাটাগরি ইতিমধ্যে রয়েছে অথবা ভুল নাম দিয়েছেন।")
+            bot.send_message(chat_id, "⚠ এই ক্যাটাগরি ইতিমধ্যে রয়েছে অথবা ভুল নাম দিয়েছেন।")
 
     elif step == 'ad_1' and message.text:
         admin_state[chat_id]['ad1'] = message.text.strip()
@@ -605,20 +589,8 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "📥 **ভিডিও ফাইলটি পাঠান:**")
 
     elif step == 'video' and (message.video or message.document):
-        incoming_file_id = message.video.file_id if message.video else message.document.file_id
-        
-        # স্বয়ংক্রিয়ভাবে আপনার প্রাইভেট ব্যাকআপ চ্যানেলে ফাইল পোস্ট করা
-        try:
-            bot.send_chat_action(chat_id, 'upload_video')
-            if message.video:
-                forwarded = bot.send_video(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
-                file_id = forwarded.video.file_id
-            else:
-                forwarded = bot.send_document(STORAGE_CHANNEL_ID, incoming_file_id, caption=f"🎬 {admin_state[chat_id]['title']}")
-                file_id = forwarded.document.file_id
-        except Exception as err:
-            print("Channel Backup Error:", err)
-            file_id = incoming_file_id
+        # কোনো প্রাইভেট চ্যানেলে ভিডিও না পাঠিয়ে সরাসরি ইউজারের পাঠানো ফাইল আইডি সংরক্ষণ
+        file_id = message.video.file_id if message.video else message.document.file_id
 
         data = load_data(force_refresh=True)
         new_video = {
@@ -633,7 +605,7 @@ def handle_admin_inputs(message):
         data.setdefault("videos", []).insert(0, new_video)
         save_data(data)
         del admin_state[chat_id]
-        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড ও ক্লাউডে ব্যাকআপ হয়েছে!**", reply_markup=get_admin_keyboard())
+        bot.reply_to(message, "🎉 **ভিডিও সফলভাবে ক্লাউড ডাটাবেজে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'welcome_video' and message.video:
         data = load_data(force_refresh=True)
