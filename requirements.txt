@@ -1,4 +1,5 @@
 pyTelegramBotAPI
 Flask
-flask-cors
+Flask-CORS
 requests
+pymongo[srv]
