@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-# সার্ভারে লাইব্রেরি নিশ্চিত করার অটো-হ্যান্ডলার
+# লাইব্রেরি অটো-ইন্সটলার
 REQUIRED_PACKAGES = [
     "pyTelegramBotAPI",
     "Flask",
@@ -29,8 +29,8 @@ from flask import Flask, jsonify, make_response, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
 
-# কনফিগারেশন
-BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
+# আপনার নতুন টোকেন ও কনফিগারেশন
+BOT_TOKEN = "8712538290:AAEtdSplx6_AvSeTtPYO9hl5ysqgbgYQQ88"
 ADMIN_ID = "7255626228"
 BOT_USERNAME = "BongoBd_ot_Bot"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com/"
