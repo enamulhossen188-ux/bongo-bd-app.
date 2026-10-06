@@ -1,3 +1,22 @@
+import subprocess
+import sys
+
+# সার্ভারে লাইব্রেরি নিশ্চিত করার অটো-হ্যান্ডলার
+REQUIRED_PACKAGES = [
+    "pyTelegramBotAPI",
+    "Flask",
+    "Flask-CORS",
+    "requests",
+    "pymongo",
+    "dnspython"
+]
+
+for pkg in REQUIRED_PACKAGES:
+    try:
+        __import__(pkg.replace("-", "_").split("[")[0])
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
 import os
 import time
 import json
@@ -10,6 +29,7 @@ from flask import Flask, jsonify, make_response, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
 
+# কনফিগারেশন
 BOT_TOKEN = "8712538290:AAHWVc4G7nQHzU5QpLiaaPWGrR8vpST_bBA"
 ADMIN_ID = "7255626228"
 BOT_USERNAME = "BongoBd_ot_Bot"
@@ -19,7 +39,6 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 app = Flask(__name__)
 CORS(app)
 
-# নিখুঁত কানেকশন স্ট্রিং
 MONGO_URI = "mongodb+srv://enamulhossen473_db_user:eN708090@cluster0.kq0upog.mongodb.net/bongo_bd_db?retryWrites=true&w=majority"
 client = MongoClient(MONGO_URI, connect=False)
 db = client["bongo_bd_db"]
