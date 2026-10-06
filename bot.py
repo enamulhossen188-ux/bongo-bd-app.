@@ -145,7 +145,7 @@ def format_button_label(video):
             return f"🗑️ BP S5 - Ep {ep_no}"
 
     if len(title) > 30:
-        return f"🗑️ {title[:28]}.."
+        return f"🗑️️ {title[:28]}.."
     return f"🗑 {title}"
 
 def get_delete_view_data(page=0):
@@ -173,7 +173,7 @@ def get_delete_view_data(page=0):
     if page > 0:
         nav_buttons.append(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"delpage_{page-1}"))
     if end_idx < len(videos):
-        nav_buttons.append(types.InlineKeyboardButton("Next ➡️", callback_data=f"delpage_{page+1}"))
+        nav_buttons.append(types.InlineKeyboardButton("Next ➡️️", callback_data=f"delpage_{page+1}"))
     
     if nav_buttons:
         markup.row(*nav_buttons)
