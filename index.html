@@ -11,10 +11,10 @@
             --bg-color: #0d0e12;
             --surface-color: rgba(22, 23, 29, 0.85);
             --card-border: rgba(255, 255, 255, 0.08);
-            --primary: #ff0055;
-            --primary-gradient: linear-gradient(135deg, #ff007f 0%, #ff0055 100%);
+            --primary: #e50914;
+            --primary-gradient: linear-gradient(135deg, #e50914 0%, #b20710 100%);
             --accent-pink: #ff007f;
-            --accent-glow: rgba(255, 0, 127, 0.5);
+            --accent-glow: rgba(229, 9, 20, 0.5);
             --text-color: #f8fafc;
             --text-muted: #8e9bb0;
             --input-bg: #181920;
@@ -59,15 +59,14 @@
         }
 
         .header h1 {
-            font-size: 18px;
-            font-weight: 700;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 19px;
+            font-weight: 800;
+            color: #ffffff;
             display: flex;
             align-items: center;
             gap: 8px;
         }
+        .header h1 span { color: var(--primary); }
 
         .theme-toggle {
             background: var(--surface-color);
@@ -99,7 +98,7 @@
         }
 
         .search-input:focus {
-            border-color: var(--accent-pink);
+            border-color: var(--primary);
             box-shadow: 0 0 10px var(--accent-glow);
         }
 
@@ -112,68 +111,72 @@
             font-size: 14px;
         }
 
-        .category-scroll {
+        /* স্ক্রিনশটের মতো বড় ও মোটা গ্রিড বাটন (Main Category) */
+        .category-box-grid {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 10px;
-            scrollbar-width: none;
-        }
-        .category-scroll::-webkit-scrollbar {
-            display: none;
+            margin-bottom: 10px;
         }
 
         .category-chip {
-            padding: 6px 14px;
-            background: var(--surface-color);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
+            flex: 1 1 calc(33.333% - 8px);
+            min-height: 42px;
+            background: #1c1d24;
+            border: 1.5px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
             font-size: 12px;
-            white-space: nowrap;
-            color: var(--text-muted);
+            font-weight: 700;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
             cursor: pointer;
-            backdrop-filter: blur(8px);
             text-transform: uppercase;
+            padding: 4px 6px;
         }
 
         .category-chip.active {
-            background: var(--primary-gradient);
-            color: #ffffff;
-            font-weight: 600;
-            border: none;
-            box-shadow: 0 2px 10px var(--accent-glow);
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
         }
 
-        /* সাব-ক্যাটাগরি বার */
+        /* নিচের মোটা সাব-ক্যাটাগরি বাটন */
         .sub-category-scroll {
             display: none;
+            flex-wrap: wrap;
             gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 12px;
-            margin-bottom: 4px;
-            scrollbar-width: none;
-        }
-        .sub-category-scroll::-webkit-scrollbar {
-            display: none;
+            margin-bottom: 16px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .sub-category-chip {
-            padding: 5px 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--card-border);
-            border-radius: 14px;
+            flex: 1 1 calc(33.333% - 8px);
+            min-height: 38px;
+            background: #181920;
+            border: 1.5px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
             font-size: 11px;
-            white-space: nowrap;
-            color: var(--text-muted);
+            font-weight: 700;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
             cursor: pointer;
             text-transform: uppercase;
+            padding: 4px 6px;
         }
 
         .sub-category-chip.active {
-            background: #e11d48;
-            color: #ffffff;
-            font-weight: 600;
-            border-color: #e11d48;
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 3px 10px rgba(229, 9, 20, 0.35);
         }
 
         .video-grid {
@@ -546,7 +549,7 @@
 <body>
 
     <div class="header">
-        <h1><i class="fa-solid fa-circle-play"></i> Bongo BD</h1>
+        <h1><i class="fa-solid fa-circle-play"></i> <span>Bongo</span> BD</h1>
         <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn"><i class="fa-solid fa-moon"></i> Dark</button>
     </div>
 
@@ -556,10 +559,10 @@
             <input type="text" id="searchInput" class="search-input" placeholder="নাটকের নাম বা পর্ব খুঁজুন..." oninput="handleSearch()">
         </div>
 
-        <!-- মেইন ক্যাটাগরি (উপরের বার) -->
-        <div class="category-scroll" id="categoryTabs"></div>
+        <!-- উপরের মূল ক্যাটাগরি বাটন গ্রিড -->
+        <div class="category-box-grid" id="categoryTabs"></div>
 
-        <!-- সাব-ক্যাটাগরি (নিচের বার) -->
+        <!-- নিচের সাব-ক্যাটাগরি বাটন গ্রিড -->
         <div class="sub-category-scroll" id="subCategoryTabs"></div>
 
         <div class="video-grid" id="videoContainer"></div>
@@ -635,7 +638,7 @@
         const tg = window.Telegram?.WebApp;
         if (tg) tg.expand();
 
-        let appData = { videos: [], ads: {} };
+        let appData = { videos: [], ads: {}, categories: [], sub_categories: {} };
         let activeCategory = '';
         let activeSubCategory = 'ALL';
         let currentSelectedVideo = null;
@@ -646,14 +649,7 @@
         let taskStartTime = 0;
         let countdownTimer = null;
 
-        // আপনার পছন্দমতো এখানে সাব-ক্যাটাগরি যুক্ত বা পরিবর্তন করতে পারবেন
-        const SUB_CATEGORY_MAP = {
-            "MOVIES": ["MOVIES", "HINDI"],
-            "DRAMA": ["DRAMA", "FUNNY", "ROMANCE"],
-            "SERIES": ["SULTAN SALAHUDDIN", "USER NOT FOUND", "REAL TIME LOVE"]
-        };
-
-        const SAFE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="%2311141a"/><circle cx="320" cy="180" r="42" fill="%23ff0055" fill-opacity="0.85"/><polygon points="310,165 338,180 310,195" fill="%23ffffff"/></svg>';
+        const SAFE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="%2311141a"/><circle cx="320" cy="180" r="42" fill="%23e50914" fill-opacity="0.85"/><polygon points="310,165 338,180 310,195" fill="%23ffffff"/></svg>';
 
         function handleImageFallback(img) {
             const original = img.getAttribute("data-original");
@@ -711,11 +707,12 @@
 
         function renderSubCategories() {
             const subContainer = document.getElementById("subCategoryTabs");
-            const subList = SUB_CATEGORY_MAP[activeCategory.toUpperCase()];
+            const subMap = appData.sub_categories || {};
+            const subList = subMap[activeCategory.toUpperCase()] || [];
 
             if (subList && subList.length > 0) {
                 subContainer.style.display = "flex";
-                activeSubCategory = subList[0]; // ডিফল্ট প্রথমটি সিলেক্ট হবে
+                activeSubCategory = subList[0];
 
                 let html = '';
                 subList.forEach(sub => {
@@ -738,7 +735,8 @@
 
         function filterSubCategory(sub) {
             activeSubCategory = sub;
-            const subList = SUB_CATEGORY_MAP[activeCategory.toUpperCase()] || [];
+            const subMap = appData.sub_categories || {};
+            const subList = subMap[activeCategory.toUpperCase()] || [];
             let html = '';
             subList.forEach(s => {
                 const isActive = (activeSubCategory.toUpperCase() === s.toUpperCase());
@@ -755,12 +753,10 @@
 
             let list = appData.videos || [];
 
-            // মেইন ক্যাটাগরি অনুযায়ী ফিল্টার
             if (activeCategory) {
                 list = list.filter(v => (v.category || '').toUpperCase() === activeCategory.toUpperCase());
             }
 
-            // সাব-ক্যাটাগরি অনুযায়ী ফিল্টার
             if (activeSubCategory && activeSubCategory !== 'ALL') {
                 list = list.filter(v => {
                     const subField = (v.sub_category || '').toUpperCase();
