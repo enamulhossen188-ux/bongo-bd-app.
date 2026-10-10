@@ -718,17 +718,16 @@
             if (userSubList && userSubList.length > 0) {
                 subContainer.style.display = "flex";
 
-                // প্রথম বাটন হিসেবে মূল ক্যাটাগরি এবং পরে যুক্ত করা সব সাব-ক্যাটাগরি
-                const fullSubList = [activeCategory.toUpperCase(), ...userSubList.map(s => s.toUpperCase())];
-                const uniqueSubs = [...new Set(fullSubList)];
+                // আপনি বটে যে নামগুলো দেবেন শুধু সেগুলোই হুবহু শো করবে (কোনো ডুপ্লিকেট নাম ঢুকবে না)
+                const uniqueSubs = [...new Set(userSubList.map(s => s.trim()))];
 
-                if (!uniqueSubs.includes(activeSubCategory.toUpperCase())) {
+                if (!uniqueSubs.some(s => s.toUpperCase() === activeSubCategory.toUpperCase())) {
                     activeSubCategory = uniqueSubs[0];
                 }
 
                 let html = '';
                 uniqueSubs.forEach(sub => {
-                    const isActive = (activeSubCategory.toUpperCase() === sub.toUpperCase());
+                    const isActive = (activeSubCategory.trim().toUpperCase() === sub.trim().toUpperCase());
                     html += `<div class="sub-category-chip ${isActive ? 'active' : ''}" onclick="filterSubCategory('${sub}')">${sub}</div>`;
                 });
                 subContainer.innerHTML = html;
@@ -771,8 +770,8 @@
                 list = list.filter(v => (v.category || '').trim().toUpperCase() === activeCategory.trim().toUpperCase());
             }
 
-            // সাব-ক্যাটাগরি ফিল্টার (প্রথম বাটন ব্যতীত স্পেসিফিক ফিল্টারিং)
-            if (activeSubCategory && activeSubCategory !== 'ALL' && activeSubCategory.toUpperCase() !== activeCategory.trim().toUpperCase()) {
+            // সাব-ক্যাটাগরি ফিল্টার
+            if (activeSubCategory && activeSubCategory !== 'ALL') {
                 list = list.filter(v => {
                     const subField = (v.sub_category || '').trim().toUpperCase();
                     const titleText = (v.title || '').trim().toUpperCase();
