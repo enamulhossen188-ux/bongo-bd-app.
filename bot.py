@@ -41,7 +41,8 @@ def get_default_data():
         "users": [],
         "categories": ["BPS5", "MOVE", "DRAMA", "SERIES", "COMING SOON"],
         "sub_categories": {
-            "DRAMA": ["FUNNY", "ROMANCE"]
+            "DRAMA": ["FUNNY", "ROMANCE"],
+            "SERIES": ["SULTAN SALAHUDDIN", "USER NOT FOUND"]
         },
         "ads": {"ad1": "https://google.com", "ad2": "https://google.com"},
         "welcome_video": "",
@@ -143,7 +144,8 @@ def upload_thumb_securely(photo_id):
 
 @app.route('/api/data', methods=['GET'])
 def get_app_data():
-    data = load_data()
+    # সরাসরি ফ্রেশ ডেটা প্রদান করবে
+    data = load_data(force_refresh=True)
     resp = make_response(jsonify(data))
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
@@ -192,7 +194,7 @@ def format_button_label(video):
     return f"🗑️ {title}"
 
 def get_delete_view_data(page=0):
-    data = load_data()
+    data = load_data(force_refresh=True)
     videos = data.get("videos", [])
     if not videos:
         return None, None
@@ -224,9 +226,8 @@ def get_delete_view_data(page=0):
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return text_msg, markup
 
-# ==================== বাটন ম্যানেজমেন্ট (Edit + Delete + Add) ====================
 def get_main_category_keyboard():
-    data = load_data()
+    data = load_data(force_refresh=True)
     cats = data.get("categories", ["BPS5", "MOVE", "DRAMA", "SERIES", "COMING SOON"])
     markup = types.InlineKeyboardMarkup()
 
@@ -242,9 +243,11 @@ def get_main_category_keyboard():
     return markup
 
 def get_sub_category_keyboard(main_cat):
-    data = load_data()
+    data = load_data(force_refresh=True)
     sub_map = data.get("sub_categories", {})
-    sub_list = sub_map.get(main_cat, [])
+    # কেস-ইনসেনসিটিভ সার্চ
+    found_key = next((k for k in sub_map if k.strip().upper() == main_cat.strip().upper()), None)
+    sub_list = sub_map.get(found_key, []) if found_key else []
 
     markup = types.InlineKeyboardMarkup()
     for sc in sub_list:
@@ -279,7 +282,6 @@ def handle_bot_blocked_or_unblocked(update: types.ChatMemberUpdated):
 @bot.message_handler(commands=['admin'])
 def open_admin_panel(message):
     if str(message.chat.id) != str(ADMIN_ID):
-        bot.reply_to(message, "❌ আপনি অ্যাডমিন নন!")
         return
     bot.send_message(
         message.chat.id, 
@@ -302,28 +304,7 @@ def show_total_users(message):
     if str(message.chat.id) != str(ADMIN_ID): return
     data = load_data()
     user_list = data.get("users", [])
-    active_users = []
-    removed_any = False
-
-    for uid in user_list:
-        try:
-            bot.send_chat_action(uid, 'typing')
-            active_users.append(uid)
-            time.sleep(0.02)
-        except Exception:
-            removed_any = True
-
-    if removed_any:
-        data["users"] = active_users
-        save_data(data)
-
-    msg_text = (
-        "📊 **বটের ইউজার পরিসংখ্যান**\n\n"
-        f"👥 মোট সক্রিয় ইউজার: **{len(active_users)}** জন\n"
-        f"🎬 মোট ভিডিও: **{len(data.get('videos', []))}** টি\n"
-        f"📁 মোট ক্যাটাগরি: **{len(data.get('categories', []))}** টি"
-    )
-    bot.send_message(message.chat.id, msg_text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"📊 মোট সক্রিয় ইউজার: **{len(user_list)}** জন\nমোট ভিডিও: **{len(data.get('videos', []))}** টি")
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -372,25 +353,21 @@ def handle_callbacks(call):
     if call.data == "btn_update":
         bot.answer_callback_query(call.id)
         data = load_data()
-        notice_text = data.get("update_notice", "বর্তমানে কোনো নতুন আপডেট নেই। আমাদের সাথেই থাকুন!")
-        bot.send_message(chat_id, f"📢 **ভিডিও আপডেট:**\n\n{notice_text}")
+        bot.send_message(chat_id, f"📢 **ভিডিও আপডেট:**\n\n{data.get('update_notice', '')}")
         return
-        
     elif call.data == "btn_help":
         bot.answer_callback_query(call.id)
-        bot.send_message(chat_id, "💡 **যেভাবে ভিডিও ডাউনলোড করবেন:**\n১. WATCH NOW বাটনে ক্লিক করে অ্যাপে ঢুকুন।\n২. পছন্দের ভিডিও সিলেক্ট করুন।\n৩. দুটি বিজ্ঞাপন ১০ সেকেন্ড করে ভিজিট করুন।\n৪. ডাউনলোড বাটনে চাপ দিলে ভিডিও ইনবক্সে চলে আসবে!")
+        bot.send_message(chat_id, "💡 **ভিডিও ডাউনলোড নিয়ম:** অ্যাপে ঢুকে ভিডিও নির্বাচন করুন এবং ২টি বিজ্ঞাপন ভিজিট করে ডাউনলোড চাপুন।")
         return
 
     if str(chat_id) != str(ADMIN_ID):
-        bot.answer_callback_query(call.id, "❌ আপনি অ্যাডমিন নন!")
         return
 
     if call.data == "close_admin_menu":
         bot.delete_message(chat_id, call.message.message_id)
-        bot.answer_callback_query(call.id, "বন্ধ করা হয়েছে!")
+        bot.answer_callback_query(call.id)
         return
 
-    # ক্যাটাগরি মেনু নেভিগেশন
     if call.data == "back_to_main_cat":
         bot.edit_message_text(
             "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**\nযেকোনো ক্যাটাগরির ভেতরে সাব-ক্যাটাগরি দেখতে বা এডিট করতে সিলেক্ট করুন:",
@@ -408,7 +385,6 @@ def handle_callbacks(call):
         bot.answer_callback_query(call.id)
         return
 
-    # মূল ক্যাটাগরি নাম পরিবর্তন (Edit Name)
     if call.data.startswith("editmaincat_"):
         old_cat = call.data.replace("editmaincat_", "")
         admin_state[chat_id] = {'step': 'edit_main_cat_name', 'old_name': old_cat}
@@ -416,7 +392,6 @@ def handle_callbacks(call):
         bot.send_message(chat_id, f"✏️ **'{old_cat}' এর নতুন নাম কী দিতে চান? লিখে পাঠান:**\n(বাতিল করতে /cancel লিখুন)")
         return
 
-    # সাব-ক্যাটাগরি নাম পরিবর্তন (Edit Sub Name)
     if call.data.startswith("editsubcat_"):
         _, main_c, old_sub = call.data.split("_", 2)
         admin_state[chat_id] = {'step': 'edit_sub_cat_name', 'main_cat': main_c, 'old_sub': old_sub}
@@ -451,8 +426,9 @@ def handle_callbacks(call):
     if call.data.startswith("delsub_"):
         _, main_c, sub_c = call.data.split("_", 2)
         data = load_data(force_refresh=True)
-        if main_c in data.get("sub_categories", {}) and sub_c in data["sub_categories"][main_c]:
-            data["sub_categories"][main_c].remove(sub_c)
+        found_key = next((k for k in data.get("sub_categories", {}) if k.strip().upper() == main_c.strip().upper()), None)
+        if found_key and sub_c in data["sub_categories"][found_key]:
+            data["sub_categories"][found_key].remove(sub_c)
             save_data(data)
             bot.answer_callback_query(call.id, f"✅ '{sub_c}' মুছে ফেলা হয়েছে!", show_alert=True)
             bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=get_sub_category_keyboard(main_c))
@@ -492,7 +468,7 @@ def handle_admin_inputs(message):
 
     if message.text == "➕ Add Video":
         admin_state[chat_id] = {'step': 'category'}
-        data = load_data()
+        data = load_data(force_refresh=True)
         cats = data.get("categories", ["BPS5", "MOVE", "DRAMA", "SERIES"])
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         for i in range(0, len(cats), 2):
@@ -559,7 +535,7 @@ def handle_admin_inputs(message):
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
-    # মূল ক্যাটাগরি নাম এডিট সম্পন্ন
+    # মূল ক্যাটাগরি নাম এডিট
     if step == 'edit_main_cat_name' and message.text:
         new_name = message.text.strip().upper()
         old_name = admin_state[chat_id]['old_name']
@@ -567,10 +543,8 @@ def handle_admin_inputs(message):
         if old_name in data.get("categories", []):
             idx = data["categories"].index(old_name)
             data["categories"][idx] = new_name
-            # সাব-ক্যাটাগরি ডিকশনারি আপডেট
             if old_name in data.get("sub_categories", {}):
                 data["sub_categories"][new_name] = data["sub_categories"].pop(old_name)
-            # ভিডিওর ক্যাটাগরি আপডেট
             for v in data.get("videos", []):
                 if v.get("category", "").upper() == old_name.upper():
                     v["category"] = new_name
@@ -579,15 +553,16 @@ def handle_admin_inputs(message):
             bot.send_message(chat_id, f"✅ **'{old_name}' পরিবর্তিত হয়ে '{new_name}' হয়েছে!**", reply_markup=get_admin_keyboard())
         return
 
-    # সাব-ক্যাটাগরি নাম এডিট সম্পন্ন
+    # সাব-ক্যাটাগরি নাম এডিট
     elif step == 'edit_sub_cat_name' and message.text:
         new_sub = message.text.strip().upper()
         main_c = admin_state[chat_id]['main_cat']
         old_sub = admin_state[chat_id]['old_sub']
         data = load_data(force_refresh=True)
-        if main_c in data.get("sub_categories", {}) and old_sub in data["sub_categories"][main_c]:
-            idx = data["sub_categories"][main_c].index(old_sub)
-            data["sub_categories"][main_c][idx] = new_sub
+        found_key = next((k for k in data.get("sub_categories", {}) if k.strip().upper() == main_c.strip().upper()), None)
+        if found_key and old_sub in data["sub_categories"][found_key]:
+            idx = data["sub_categories"][found_key].index(old_sub)
+            data["sub_categories"][found_key][idx] = new_sub
             for v in data.get("videos", []):
                 if v.get("category", "").upper() == main_c.upper() and v.get("sub_category", "").upper() == old_sub.upper():
                     v["sub_category"] = new_sub
@@ -596,7 +571,6 @@ def handle_admin_inputs(message):
             bot.send_message(chat_id, f"✅ **'{old_sub}' পরিবর্তিত হয়ে '{new_sub}' হয়েছে!**", reply_markup=get_admin_keyboard())
         return
 
-    # মূল ক্যাটাগরি তৈরি
     elif step == 'add_single_category' and message.text:
         new_c = message.text.strip().upper()
         data = load_data(force_refresh=True)
@@ -607,30 +581,34 @@ def handle_admin_inputs(message):
             save_data(data)
             del admin_state[chat_id]
             bot.send_message(chat_id, f"✅ **'{new_c}' মূল ক্যাটাগরি সফলভাবে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
-        else:
-            bot.send_message(chat_id, "⚠️ এই ক্যাটাগরি ইতিমধ্যে রয়েছে অথবা ভুল নাম দিয়েছেন।")
+        return
 
-    # সাব-ক্যাটাগরি তৈরি
     elif step == 'add_single_sub_category' and message.text:
         sub_c = message.text.strip().upper()
         main_c = admin_state[chat_id]['main_cat']
         data = load_data(force_refresh=True)
         sub_map = data.setdefault("sub_categories", {})
-        sub_list = sub_map.setdefault(main_c, [])
-        if sub_c not in sub_list:
-            sub_list.append(sub_c)
+        found_key = next((k for k in sub_map if k.strip().upper() == main_c.strip().upper()), None)
+        if not found_key:
+            found_key = main_c.strip().upper()
+            sub_map[found_key] = []
+        if sub_c not in sub_map[found_key]:
+            sub_map[found_key].append(sub_c)
             save_data(data)
             del admin_state[chat_id]
             bot.send_message(chat_id, f"✅ **'{main_c}' এর নিচে '{sub_c}' সাব-ক্যাটাগরি যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
-        else:
-            bot.send_message(chat_id, "⚠️ এই সাব-ক্যাটাগরি আগে থেকেই রয়েছে।")
+        return
 
-    # ভিডিও আপলোডে ক্যাটাগরি নির্বাচন
+    # ভিডিও আপলোডে ক্যাটাগরি নির্বাচন (সংশোধিত কেস-ইনসেনসিটিভ সাব-ক্যাটাগরি চেকার)
     elif step == 'category' and message.text:
-        chosen_cat = message.text.strip().upper()
+        chosen_cat = message.text.strip()
         admin_state[chat_id]['category'] = chosen_cat
-        data = load_data()
-        sub_list = data.get("sub_categories", {}).get(chosen_cat, [])
+        data = load_data(force_refresh=True)
+        
+        # সাব-ক্যাটাগরি ডিকশনারি থেকে কেস-ইনসেনসিটিভভাবে তালিকা খোঁজা
+        sub_map = data.get("sub_categories", {})
+        found_key = next((k for k in sub_map if k.strip().upper() == chosen_cat.strip().upper()), None)
+        sub_list = sub_map.get(found_key, []) if found_key else []
 
         if sub_list:
             admin_state[chat_id]['step'] = 'sub_category'
@@ -670,8 +648,8 @@ def handle_admin_inputs(message):
         data = load_data(force_refresh=True)
         new_video = {
             "id": int(time.time()),
-            "category": admin_state[chat_id]['category'],
-            "sub_category": admin_state[chat_id].get('sub_category', ''),
+            "category": admin_state[chat_id]['category'].strip().upper(),
+            "sub_category": admin_state[chat_id].get('sub_category', '').strip().upper(),
             "title": admin_state[chat_id]['title'],
             "thumb": admin_state[chat_id]['thumb'],
             "file_id": file_id,
@@ -684,25 +662,20 @@ def handle_admin_inputs(message):
         bot.reply_to(message, "🎉 **ভিডিও সফলভাবে আপলোড হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'set_video_update' and message.text:
-        new_notice = message.text.strip()
         data = load_data(force_refresh=True)
-        data["update_notice"] = new_notice
+        data["update_notice"] = message.text.strip()
         save_data(data)
         del admin_state[chat_id]
-        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট সফলভাবে সেট করা হয়েছে!**\n\n\"{new_notice}\"", reply_markup=get_admin_keyboard())
-        return
+        bot.send_message(chat_id, f"✅ **ভিডিও আপডেট নোটিশ সেট হয়েছে!**", reply_markup=get_admin_keyboard())
 
     elif step == 'ad_1' and message.text:
         admin_state[chat_id]['ad1'] = message.text.strip()
         admin_state[chat_id]['step'] = 'ad_2'
-        bot.send_message(chat_id, "🎯 **এবার Task 2 এর এড লিংক (URL) পাঠান:**")
+        bot.send_message(chat_id, "🎯 **Task 2 এর এড লিংক পাঠান:**")
 
     elif step == 'ad_2' and message.text:
         data = load_data(force_refresh=True)
-        data["ads"] = {
-            "ad1": admin_state[chat_id]['ad1'],
-            "ad2": message.text.strip()
-        }
+        data["ads"] = {"ad1": admin_state[chat_id]['ad1'], "ad2": message.text.strip()}
         save_data(data)
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **বিজ্ঞাপনের লিংক দুটি আপডেট হয়েছে!**", reply_markup=get_admin_keyboard())
@@ -749,12 +722,7 @@ def handle_admin_inputs(message):
         bot.send_message(chat_id, "🖼 **কামিং সুন পোস্টের থাম্বনেইল ছবি পাঠান:**")
 
     elif step == 'cs_thumb' and (message.photo or message.text):
-        if message.photo:
-            bot.send_chat_action(chat_id, 'upload_photo')
-            thumb_url = upload_thumb_securely(message.photo[-1].file_id)
-        else:
-            thumb_url = message.text.strip()
-
+        thumb_url = upload_thumb_securely(message.photo[-1].file_id) if message.photo else message.text.strip()
         data = load_data(force_refresh=True)
         new_item = {
             "id": int(time.time()),
