@@ -27,6 +27,13 @@ APP_URL = "https://bongo-bd-app-uixi.onrender.com"
 DB_CHANNEL_ID = -1003902807907  # আপনার প্রাইভেট স্টোরেজ চ্যানেল
 # ====================================================
 
+# কোন ক্যাটাগরির অধীনে কোন সাব-ক্যাটাগরি থাকবে (এখানে আপনার ইচ্ছা মতো নাম যোগ বা পরিবর্তন করতে পারবেন)
+SUB_CATEGORY_MAP = {
+    "MOVIES": ["MOVIES", "HINDI"],
+    "DRAMA": ["DRAMA", "FUNNY", "ROMANCE"],
+    "SERIES": ["SULTAN SALAHUDDIN", "USER NOT FOUND", "REAL TIME LOVE"]
+}
+
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
@@ -67,7 +74,7 @@ def load_data(force_refresh=False):
     if not force_refresh and cached_data and (current_time - last_cache_time < CACHE_DURATION):
         return cached_data
 
-    # ১. টেলিগ্রাম চ্যানেলের পিন করা মেসেজ থেকে স্থায়ী ডাটা রিকভারি
+    # টেলিগ্রাম চ্যানেলের পিন করা মেসেজ থেকে স্থায়ী ডাটা রিকভারি
     data = get_db_file_content()
     if data and "videos" in data:
         cached_data = data
@@ -94,7 +101,7 @@ def save_data(data):
             caption=f"📦 Database Update: {datetime.now().strftime('%d %b %Y, %I:%M:%S %p')}"
         )
 
-        # নতুন ফাইলটি স্বয়ংক্রিয়ভাবে পিন করা (যাতে সার্ভার রিস্টার্ট হলেও কোনো ডেটা না হারায়)
+        # নতুন ফাইলটি স্বয়ংক্রিয়ভাবে পিন করা (সার্ভার রিস্টার্ট হলেও কোনো ডেটা ডিলিট হবে না)
         try:
             bot.pin_chat_message(DB_CHANNEL_ID, sent_doc.message_id, disable_notification=True)
         except Exception:
@@ -143,7 +150,7 @@ def upload_thumb_securely(photo_id):
     except Exception as e:
         print("Thumbnail Processing Error:", e)
 
-    # ৩. শেষ ব্যাকআপ: সরাসরি টেলিগ্রাম হাই-কোয়ালিটি সিডিএন প্রক্সি (কোনো ডামি ধূসর টেক্সট থাকবে না)
+    # ৩. শেষ ব্যাকআপ: সরাসরি টেলিগ্রাম হাই-কোয়ালিটি সিডিএন প্রক্সি
     try:
         file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
@@ -597,6 +604,7 @@ def handle_admin_inputs(message):
         new_item = {
             "id": int(time.time()),
             "category": "COMING SOON",
+            "sub_category": "",
             "is_coming_soon": True,
             "title": admin_state[chat_id]['title'],
             "notice": admin_state[chat_id]['notice'],
@@ -609,10 +617,30 @@ def handle_admin_inputs(message):
         del admin_state[chat_id]
         bot.send_message(chat_id, "✅ **কামিং সুন পোস্ট সফলভাবে যুক্ত হয়েছে!**", reply_markup=get_admin_keyboard())
 
+    # ক্যাটাগরি নির্বাচনের পর সাব-ক্যাটাগরি দেখানো
     elif step == 'category' and message.text:
-        admin_state[chat_id]['category'] = message.text.strip()
+        chosen_cat = message.text.strip().upper()
+        admin_state[chat_id]['category'] = chosen_cat
+
+        if chosen_cat in SUB_CATEGORY_MAP:
+            admin_state[chat_id]['step'] = 'sub_category'
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            for sc in SUB_CATEGORY_MAP[chosen_cat]:
+                markup.add(types.KeyboardButton(sc))
+            bot.send_message(chat_id, f"📁 **{chosen_cat} এর সাব-ক্যাটাগরি বেছে নিন:**", reply_markup=markup)
+            return
+        else:
+            admin_state[chat_id]['sub_category'] = ''
+            admin_state[chat_id]['step'] = 'title'
+            bot.send_message(chat_id, "🎬 **ভিডিওর নাম (Title) লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
+            return
+
+    # সাব-ক্যাটাগরি নির্ধারণ
+    elif step == 'sub_category' and message.text:
+        admin_state[chat_id]['sub_category'] = message.text.strip().upper()
         admin_state[chat_id]['step'] = 'title'
         bot.send_message(chat_id, "🎬 **ভিডিওর নাম (Title) লিখুন:**", reply_markup=types.ReplyKeyboardRemove())
+        return
 
     elif step == 'title' and message.text:
         admin_state[chat_id]['title'] = message.text.strip()
@@ -636,6 +664,7 @@ def handle_admin_inputs(message):
         new_video = {
             "id": int(time.time()),
             "category": admin_state[chat_id]['category'],
+            "sub_category": admin_state[chat_id].get('sub_category', ''),
             "title": admin_state[chat_id]['title'],
             "thumb": admin_state[chat_id]['thumb'],
             "file_id": file_id,
