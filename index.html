@@ -116,7 +116,7 @@
             display: flex;
             gap: 8px;
             overflow-x: auto;
-            padding-bottom: 12px;
+            padding-bottom: 10px;
             scrollbar-width: none;
         }
         .category-scroll::-webkit-scrollbar {
@@ -133,6 +133,7 @@
             color: var(--text-muted);
             cursor: pointer;
             backdrop-filter: blur(8px);
+            text-transform: uppercase;
         }
 
         .category-chip.active {
@@ -141,6 +142,38 @@
             font-weight: 600;
             border: none;
             box-shadow: 0 2px 10px var(--accent-glow);
+        }
+
+        /* সাব-ক্যাটাগরি বার */
+        .sub-category-scroll {
+            display: none;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+            scrollbar-width: none;
+        }
+        .sub-category-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sub-category-chip {
+            padding: 5px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            font-size: 11px;
+            white-space: nowrap;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .sub-category-chip.active {
+            background: #e11d48;
+            color: #ffffff;
+            font-weight: 600;
+            border-color: #e11d48;
         }
 
         .video-grid {
@@ -523,7 +556,11 @@
             <input type="text" id="searchInput" class="search-input" placeholder="নাটকের নাম বা পর্ব খুঁজুন..." oninput="handleSearch()">
         </div>
 
+        <!-- মেইন ক্যাটাগরি (উপরের বার) -->
         <div class="category-scroll" id="categoryTabs"></div>
+
+        <!-- সাব-ক্যাটাগরি (নিচের বার) -->
+        <div class="sub-category-scroll" id="subCategoryTabs"></div>
 
         <div class="video-grid" id="videoContainer"></div>
         <div class="empty-msg" id="emptyMessage" style="display: none;">কোনো ভিডিও খুঁজে পাওয়া যায়নি!</div>
@@ -534,7 +571,7 @@
         <div class="detail-card">
             
             <div class="rotating-border-box">
-                <img id="detailThumb" src="" alt="Thumbnail">
+                <img id="detailThumb" src="" alt="Thumbnail" onerror="handleImageFallback(this)">
             </div>
 
             <div class="detail-title-card">
@@ -593,7 +630,6 @@
     </div>
 
     <script>
-        // আপনার বট ও সার্ভার ইনফরমেশন বসানো হয়েছে
         const BOT_USERNAME = "BongoBd_ot_Bot";
         const SERVER_URL = "https://bongo-bd-app-uixi.onrender.com";
         const tg = window.Telegram?.WebApp;
@@ -601,6 +637,7 @@
 
         let appData = { videos: [], ads: {} };
         let activeCategory = '';
+        let activeSubCategory = 'ALL';
         let currentSelectedVideo = null;
 
         let task1Done = false;
@@ -609,11 +646,32 @@
         let taskStartTime = 0;
         let countdownTimer = null;
 
+        // আপনার পছন্দমতো এখানে সাব-ক্যাটাগরি যুক্ত বা পরিবর্তন করতে পারবেন
+        const SUB_CATEGORY_MAP = {
+            "MOVIES": ["MOVIES", "HINDI"],
+            "DRAMA": ["DRAMA", "FUNNY", "ROMANCE"],
+            "SERIES": ["SULTAN SALAHUDDIN", "USER NOT FOUND", "REAL TIME LOVE"]
+        };
+
+        const SAFE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="%2311141a"/><circle cx="320" cy="180" r="42" fill="%23ff0055" fill-opacity="0.85"/><polygon points="310,165 338,180 310,195" fill="%23ffffff"/></svg>';
+
+        function handleImageFallback(img) {
+            const original = img.getAttribute("data-original");
+            if (!img.dataset.retried && original && original.startsWith("http") && !original.includes("weserv.nl")) {
+                img.dataset.retried = "true";
+                img.src = `https://images.weserv.nl/?url=${encodeURIComponent(original)}&w=640&fit=cover&output=jpg&q=85`;
+                return;
+            }
+            img.onerror = null;
+            img.src = SAFE_FALLBACK_SVG;
+        }
+
         function resolveThumb(url) {
-            if (!url) return 'https://placehold.co/640x360?text=No+Thumbnail';
+            if (!url) return SAFE_FALLBACK_SVG;
             let u = url.trim();
+            if (u.includes("placehold.co")) return SAFE_FALLBACK_SVG;
             if (u.includes("api.telegram.org")) {
-                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}`;
+                return `https://images.weserv.nl/?url=${encodeURIComponent(u)}&w=640&fit=cover&output=jpg&q=85`;
             }
             return u;
         }
@@ -632,6 +690,7 @@
                 }
                 
                 renderCategoryTabs();
+                renderSubCategories();
                 renderVideos();
             } catch (err) {
                 console.error("ডাটা লোড ত্রুটি:", err);
@@ -644,10 +703,49 @@
             
             let html = '';
             cats.forEach((c) => {
-                const isActive = (activeCategory.toLowerCase() === c.toLowerCase());
-                html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}', this)">${c}</div>`;
+                const isActive = (activeCategory.toUpperCase() === c.toUpperCase());
+                html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}')">${c}</div>`;
             });
             tabsContainer.innerHTML = html;
+        }
+
+        function renderSubCategories() {
+            const subContainer = document.getElementById("subCategoryTabs");
+            const subList = SUB_CATEGORY_MAP[activeCategory.toUpperCase()];
+
+            if (subList && subList.length > 0) {
+                subContainer.style.display = "flex";
+                activeSubCategory = subList[0]; // ডিফল্ট প্রথমটি সিলেক্ট হবে
+
+                let html = '';
+                subList.forEach(sub => {
+                    const isActive = (activeSubCategory.toUpperCase() === sub.toUpperCase());
+                    html += `<div class="sub-category-chip ${isActive ? 'active' : ''}" onclick="filterSubCategory('${sub}')">${sub}</div>`;
+                });
+                subContainer.innerHTML = html;
+            } else {
+                subContainer.style.display = "none";
+                activeSubCategory = 'ALL';
+            }
+        }
+
+        function filterCategory(cat) {
+            activeCategory = cat;
+            renderCategoryTabs();
+            renderSubCategories();
+            renderVideos();
+        }
+
+        function filterSubCategory(sub) {
+            activeSubCategory = sub;
+            const subList = SUB_CATEGORY_MAP[activeCategory.toUpperCase()] || [];
+            let html = '';
+            subList.forEach(s => {
+                const isActive = (activeSubCategory.toUpperCase() === s.toUpperCase());
+                html += `<div class="sub-category-chip ${isActive ? 'active' : ''}" onclick="filterSubCategory('${s}')">${s}</div>`;
+            });
+            document.getElementById("subCategoryTabs").innerHTML = html;
+            renderVideos();
         }
 
         function renderVideos() {
@@ -657,8 +755,18 @@
 
             let list = appData.videos || [];
 
+            // মেইন ক্যাটাগরি অনুযায়ী ফিল্টার
             if (activeCategory) {
-                list = list.filter(v => (v.category || '').toLowerCase() === activeCategory.toLowerCase());
+                list = list.filter(v => (v.category || '').toUpperCase() === activeCategory.toUpperCase());
+            }
+
+            // সাব-ক্যাটাগরি অনুযায়ী ফিল্টার
+            if (activeSubCategory && activeSubCategory !== 'ALL') {
+                list = list.filter(v => {
+                    const subField = (v.sub_category || '').toUpperCase();
+                    const titleText = (v.title || '').toUpperCase();
+                    return subField === activeSubCategory.toUpperCase() || titleText.includes(activeSubCategory.toUpperCase());
+                });
             }
 
             if (query) {
@@ -679,12 +787,12 @@
 
                     card.innerHTML = `
                         <div class="thumb-wrapper">
-                            <img class="thumb-img" src="${thumbUrl}" alt="Thumb" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/640x360?text=Thumbnail';">
+                            <img class="thumb-img" src="${thumbUrl}" data-original="${item.thumb || ''}" alt="Thumb" loading="lazy" onerror="handleImageFallback(this)">
                         </div>
                         <div class="card-details">
                             <div class="video-title">${item.title}</div>
                             <div class="video-meta">
-                                <span class="category-tag">${item.category || 'নাটক'}</span>
+                                <span class="category-tag">${item.sub_category || item.category || 'নাটক'}</span>
                                 <span><i class="fa-regular fa-clock"></i> ${item.date || ''}</span>
                             </div>
                         </div>
@@ -698,19 +806,15 @@
             renderVideos();
         }
 
-        function filterCategory(cat, el) {
-            activeCategory = cat;
-            document.querySelectorAll(".category-chip").forEach(c => c.classList.remove("active"));
-            el.classList.add("active");
-            renderVideos();
-        }
-
         function openDetail(video) {
             currentSelectedVideo = video;
             document.getElementById("mainView").style.display = "none";
             document.getElementById("detailView").style.display = "block";
 
-            document.getElementById("detailThumb").src = resolveThumb(video.thumb);
+            const detailImg = document.getElementById("detailThumb");
+            detailImg.setAttribute("data-original", video.thumb || "");
+            detailImg.removeAttribute("data-retried");
+            detailImg.src = resolveThumb(video.thumb);
             document.getElementById("detailTitle").innerText = video.title;
 
             resetTasks();
