@@ -17,19 +17,20 @@ import json
 import os
 import time
 import requests
+import base64
 from datetime import datetime
 
-# আপনার মূল কনফিগারেশন
+# ==================== কনফিগারেশন ====================
 BOT_TOKEN = "8712538290:AAEtdSplx6_AvSeTtPYO9hl5ysqgbgYQQ88"
 ADMIN_ID = "7255626228"
 APP_URL = "https://bongo-bd-app-uixi.onrender.com"
 DB_CHANNEL_ID = -1003902807907  # আপনার প্রাইভেট স্টোরেজ চ্যানেল
+# ====================================================
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 CORS(app)
 
-DB_MSG_FILE = "channel_msg_id.txt"
 cached_data = None
 last_cache_time = 0
 CACHE_DURATION = 300  # ৫ মিনিট পর পর চ্যানেল থেকে সিঙ্ক
@@ -46,21 +47,18 @@ def get_default_data():
         "videos": []
     }
 
-def get_stored_msg_id():
-    if os.path.exists(DB_MSG_FILE):
-        try:
-            with open(DB_MSG_FILE, "r") as f:
-                return int(f.read().strip())
-        except Exception:
-            pass
-    return None
-
-def set_stored_msg_id(msg_id):
+def get_db_file_content():
+    """চ্যানেলের পিন করা মেসেজ থেকে স্বয়ংক্রিয়ভাবে ডাটাবেজ ফাইল রিড করে"""
     try:
-        with open(DB_MSG_FILE, "w") as f:
-            f.write(str(msg_id))
+        chat = bot.get_chat(DB_CHANNEL_ID)
+        pinned = chat.pinned_message
+        if pinned and pinned.document:
+            file_info = bot.get_file(pinned.document.file_id)
+            content = bot.download_file(file_info.file_path)
+            return json.loads(content.decode('utf-8'))
     except Exception as e:
-        print("Error saving msg_id:", e)
+        print("Telegram Pinned DB Read Error:", e)
+    return None
 
 def load_data(force_refresh=False):
     global cached_data, last_cache_time
@@ -69,26 +67,17 @@ def load_data(force_refresh=False):
     if not force_refresh and cached_data and (current_time - last_cache_time < CACHE_DURATION):
         return cached_data
 
-    msg_id = get_stored_msg_id()
-    if msg_id:
-        try:
-            # চ্যানেল মেসেজ থেকে ডাটা লোড
-            fwd = bot.forward_message(ADMIN_ID, DB_CHANNEL_ID, msg_id)
-            bot.delete_message(ADMIN_ID, fwd.message_id)
-            if fwd.document:
-                file_info = bot.get_file(fwd.document.file_id)
-                file_content = bot.download_file(file_info.file_path)
-                cached_data = json.loads(file_content.decode('utf-8'))
-                last_cache_time = current_time
-                return cached_data
-        except Exception as e:
-            print("Telegram DB Read Error:", e)
+    # ১. টেলিগ্রাম চ্যানেলের পিন করা মেসেজ থেকে স্থায়ী ডাটা রিকভারি
+    data = get_db_file_content()
+    if data and "videos" in data:
+        cached_data = data
+        last_cache_time = current_time
+        return cached_data
 
     if cached_data:
         return cached_data
 
     cached_data = get_default_data()
-    save_data(cached_data)
     return cached_data
 
 def save_data(data):
@@ -97,50 +86,70 @@ def save_data(data):
     last_cache_time = time.time()
     try:
         json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')
-        old_msg_id = get_stored_msg_id()
 
-        # ফাইলে সেভ করে টেলিগ্রাম চ্যানেলে আপলোড
+        # ফাইলে সেভ করে টেলিগ্রাম চ্যানেলে ব্যাকআপ ফাইল পাঠানো
         sent_doc = bot.send_document(
             DB_CHANNEL_ID,
-            ("db_backup.json", json_bytes),
+            ("db_backup_bot1.json", json_bytes),
             caption=f"📦 Database Update: {datetime.now().strftime('%d %b %Y, %I:%M:%S %p')}"
         )
-        set_stored_msg_id(sent_doc.message_id)
 
-        # পুরানো মেসেজ মুছে চ্যানেল পরিষ্কার রাখা
-        if old_msg_id and old_msg_id != sent_doc.message_id:
-            try:
-                bot.delete_message(DB_CHANNEL_ID, old_msg_id)
-            except Exception:
-                pass
+        # নতুন ফাইলটি স্বয়ংক্রিয়ভাবে পিন করা (যাতে সার্ভার রিস্টার্ট হলেও কোনো ডেটা না হারায়)
+        try:
+            bot.pin_chat_message(DB_CHANNEL_ID, sent_doc.message_id, disable_notification=True)
+        except Exception:
+            pass
+
     except Exception as e:
         print("Telegram DB Save Error:", e)
 
 def upload_thumb_securely(photo_id):
-    """ছবি পাঠানো মাত্রই পার্মানেন্ট ইমেজ হোস্টিংয়ে আপলোড করে সরাসরি পারফেক্ট লিংক তৈরি করে"""
+    """ImgBB (Base64) + Catbox + Weserv CDN সমন্বয়ে পার্মানেন্ট ও নিখুঁত HD থাম্বনেইল আপলোডার"""
     try:
         file_info = bot.get_file(photo_id)
         downloaded = bot.download_file(file_info.file_path)
-        
-        # নির্ভরযোগ্য ক্লাউড হোস্টিংয়ে আপলোড
-        res = requests.post(
-            "https://catbox.moe/user/api.php",
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
-            timeout=25
-        )
-        if res.status_code == 200 and res.text.strip().startswith("http"):
-            return res.text.strip()
-    except Exception as e:
-        print("Catbox Upload Error:", e)
 
+        # ১. ImgBB আল্ট্রা-ফাস্ট HD আপলোড
+        try:
+            b64_img = base64.b64encode(downloaded).decode('utf-8')
+            res_imgbb = requests.post(
+                "https://api.imgbb.com/1/upload",
+                data={
+                    "key": "6d207e02198a847aa5a0a0333f00e615",
+                    "image": b64_img
+                },
+                timeout=15
+            )
+            if res_imgbb.status_code == 200:
+                img_url = res_imgbb.json().get("data", {}).get("url")
+                if img_url:
+                    return img_url
+        except Exception as e:
+            print("ImgBB Upload Error:", e)
+
+        # ২. ব্যাকআপ হিসেবে Catbox আপলোড
+        try:
+            res_catbox = requests.post(
+                "https://catbox.moe/user/api.php",
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": ("thumb.jpg", downloaded, "image/jpeg")},
+                timeout=20
+            )
+            if res_catbox.status_code == 200 and res_catbox.text.strip().startswith("http"):
+                return res_catbox.text.strip()
+        except Exception as e:
+            print("Catbox Upload Error:", e)
+
+    except Exception as e:
+        print("Thumbnail Processing Error:", e)
+
+    # ৩. শেষ ব্যাকআপ: সরাসরি টেলিগ্রাম হাই-কোয়ালিটি সিডিএন প্রক্সি (কোনো ডামি ধূসর টেক্সট থাকবে না)
     try:
-        # বিকল্প হিসেবে সরাসরি গ্লোবাল টেলিগ্রাম প্রক্সি ক্যাশ লিংক
         file_info = bot.get_file(photo_id)
         tg_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
-        return f"https://images.weserv.nl/?url={tg_url}&w=640&h=360&fit=cover&output=jpg&q=85"
+        return f"https://images.weserv.nl/?url={tg_url}&w=800&fit=cover&output=jpg&q=90"
     except Exception:
-        return "https://placehold.co/640x360/1a1a1a/ffffff.png?text=Thumbnail"
+        return ""
 
 @app.route('/api/data', methods=['GET'])
 def get_app_data():
