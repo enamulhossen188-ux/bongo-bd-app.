@@ -39,11 +39,9 @@ admin_state = {}
 def get_default_data():
     return {
         "users": [],
-        "categories": ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"],
+        "categories": ["BPS5", "MOVE", "DRAMA", "SERIES", "COMING SOON"],
         "sub_categories": {
-            "MOVIES": ["MOVIES", "HINDI"],
-            "DRAMA": ["DRAMA", "FUNNY", "ROMANCE"],
-            "SERIES": ["SULTAN SALAHUDDIN", "USER NOT FOUND", "REAL TIME LOVE"]
+            "DRAMA": ["FUNNY", "ROMANCE"]
         },
         "ads": {"ad1": "https://google.com", "ad2": "https://google.com"},
         "welcome_video": "",
@@ -162,24 +160,26 @@ def home():
 def get_action_buttons():
     fresh_url = f"{APP_URL}?ts={int(datetime.now().timestamp())}"
     markup = types.InlineKeyboardMarkup(row_width=1)
-    btn_watch = types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url))
-    btn_update = types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update")
-    btn_help = types.InlineKeyboardButton("💡 যেভাবে ভিডিও ডাউনলোড করবেন", callback_data="btn_help")
-    markup.add(btn_watch, btn_update, btn_help)
+    markup.add(
+        types.InlineKeyboardButton("🎬 WATCH NOW", web_app=types.WebAppInfo(url=fresh_url)),
+        types.InlineKeyboardButton("🔔 VIDEO UPDATE", callback_data="btn_update"),
+        types.InlineKeyboardButton("💡 যেভাবে ভিডিও ডাউনলোড করবেন", callback_data="btn_help")
+    )
     return markup
 
 def get_admin_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    b1 = types.KeyboardButton("➕ Add Video")
-    b2 = types.KeyboardButton("📢 Add Coming Soon")
-    b3 = types.KeyboardButton("🔕 Delete Video")
-    b4 = types.KeyboardButton("📊 Total Users")
-    b5 = types.KeyboardButton("📁 Set Category")
-    b6 = types.KeyboardButton("🎯 Set Ads Link")
-    b7 = types.KeyboardButton("🎥 Set Welcome Video")
-    b8 = types.KeyboardButton("🔔 Set Video Update")
-    b9 = types.KeyboardButton("📢 BOT NOTICE")
-    markup.add(b1, b2, b3, b4, b5, b6, b7, b8, b9)
+    markup.add(
+        types.KeyboardButton("➕ Add Video"),
+        types.KeyboardButton("📢 Add Coming Soon"),
+        types.KeyboardButton("🔕 Delete Video"),
+        types.KeyboardButton("📊 Total Users"),
+        types.KeyboardButton("📁 Set Category"),
+        types.KeyboardButton("🎯 Set Ads Link"),
+        types.KeyboardButton("🎥 Set Welcome Video"),
+        types.KeyboardButton("🔔 Set Video Update"),
+        types.KeyboardButton("📢 BOT NOTICE")
+    )
     return markup
 
 def format_button_label(video):
@@ -224,15 +224,16 @@ def get_delete_view_data(page=0):
     markup.add(types.InlineKeyboardButton("❌ বন্ধ করুন (Close)", callback_data="close_admin_menu"))
     return text_msg, markup
 
-# ==================== বাটন দিয়ে সম্পূর্ণ ক্যাটাগরি ম্যানেজমেন্ট ====================
+# ==================== বাটন ম্যানেজমেন্ট (Edit + Delete + Add) ====================
 def get_main_category_keyboard():
     data = load_data()
-    cats = data.get("categories", ["BPS5", "MOVIES", "DRAMA", "SERIES", "COMING SOON"])
+    cats = data.get("categories", ["BPS5", "MOVE", "DRAMA", "SERIES", "COMING SOON"])
     markup = types.InlineKeyboardMarkup()
 
     for c in cats:
         markup.row(
-            types.InlineKeyboardButton(f"📁 {c} (সাব-ক্যাটাগরি)", callback_data=f"managecat_{c}"),
+            types.InlineKeyboardButton(f"📁 {c}", callback_data=f"managecat_{c}"),
+            types.InlineKeyboardButton("✏️ Edit", callback_data=f"editmaincat_{c}"),
             types.InlineKeyboardButton("🗑️ মুছুন", callback_data=f"delcat_{c}")
         )
 
@@ -247,7 +248,11 @@ def get_sub_category_keyboard(main_cat):
 
     markup = types.InlineKeyboardMarkup()
     for sc in sub_list:
-        markup.add(types.InlineKeyboardButton(f"🗑️ Delete Sub: {sc}", callback_data=f"delsub_{main_cat}_{sc}"))
+        markup.row(
+            types.InlineKeyboardButton(f"🔹 {sc}", callback_data=f"noop_{sc}"),
+            types.InlineKeyboardButton("✏️ Edit", callback_data=f"editsubcat_{main_cat}_{sc}"),
+            types.InlineKeyboardButton("🗑️ মুছুন", callback_data=f"delsub_{main_cat}_{sc}")
+        )
 
     markup.add(types.InlineKeyboardButton(f"➕ Add Sub-Category under {main_cat}", callback_data=f"addsub_{main_cat}"))
     markup.add(types.InlineKeyboardButton("⬅️ মূল ক্যাটাগরি লিস্টে ফিরুন", callback_data="back_to_main_cat"))
@@ -388,7 +393,7 @@ def handle_callbacks(call):
     # ক্যাটাগরি মেনু নেভিগেশন
     if call.data == "back_to_main_cat":
         bot.edit_message_text(
-            "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**\nযেকোনো ক্যাটাগরির ভেতরে সাব-ক্যাটাগরি যোগ করতে বা মুছতে সিলেক্ট করুন:",
+            "📁 **ক্যাটাগরি ম্যানেজমেন্ট:**\nযেকোনো ক্যাটাগরির ভেতরে সাব-ক্যাটাগরি দেখতে বা এডিট করতে সিলেক্ট করুন:",
             chat_id, call.message.message_id, reply_markup=get_main_category_keyboard()
         )
         bot.answer_callback_query(call.id)
@@ -397,10 +402,26 @@ def handle_callbacks(call):
     if call.data.startswith("managecat_"):
         main_c = call.data.replace("managecat_", "")
         bot.edit_message_text(
-            f"📁 **'{main_c}' এর সাব-ক্যাটাগরি ম্যানেজমেন্ট:**\nনিচে থেকে সাব-ক্যাটাগরি মুছুন বা নতুন যোগ করুন:",
+            f"📁 **'{main_c}' এর সাব-ক্যাটাগরি লিস্ট:**\nএখান থেকে নাম এডিট, ডিলিট বা নতুন যোগ করুন:",
             chat_id, call.message.message_id, reply_markup=get_sub_category_keyboard(main_c)
         )
         bot.answer_callback_query(call.id)
+        return
+
+    # মূল ক্যাটাগরি নাম পরিবর্তন (Edit Name)
+    if call.data.startswith("editmaincat_"):
+        old_cat = call.data.replace("editmaincat_", "")
+        admin_state[chat_id] = {'step': 'edit_main_cat_name', 'old_name': old_cat}
+        bot.answer_callback_query(call.id)
+        bot.send_message(chat_id, f"✏️ **'{old_cat}' এর নতুন নাম কী দিতে চান? লিখে পাঠান:**\n(বাতিল করতে /cancel লিখুন)")
+        return
+
+    # সাব-ক্যাটাগরি নাম পরিবর্তন (Edit Sub Name)
+    if call.data.startswith("editsubcat_"):
+        _, main_c, old_sub = call.data.split("_", 2)
+        admin_state[chat_id] = {'step': 'edit_sub_cat_name', 'main_cat': main_c, 'old_sub': old_sub}
+        bot.answer_callback_query(call.id)
+        bot.send_message(chat_id, f"✏️ **'{main_c}' এর অধীনে থাকা '{old_sub}' সাব-ক্যাটাগরির নতুন নাম লিখে পাঠান:**\n(বাতিল করতে /cancel লিখুন)")
         return
 
     if call.data == "add_new_category":
@@ -472,7 +493,7 @@ def handle_admin_inputs(message):
     if message.text == "➕ Add Video":
         admin_state[chat_id] = {'step': 'category'}
         data = load_data()
-        cats = data.get("categories", ["BPS5", "MOVIES", "DRAMA", "SERIES"])
+        cats = data.get("categories", ["BPS5", "MOVE", "DRAMA", "SERIES"])
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         for i in range(0, len(cats), 2):
             markup.row(*[types.KeyboardButton(c) for c in cats[i:i+2]])
@@ -499,7 +520,7 @@ def handle_admin_inputs(message):
     elif message.text == "📁 Set Category":
         bot.send_message(
             chat_id,
-            "📁 **ক্যাটাগরি ও সাব-ক্যাটাগরি ম্যানেজমেন্ট:**\nএখানে সরাসরি বাটন থেকে উপরে ও নিচের সব ক্যাটাগরি ম্যানেজ করুন:",
+            "📁 **ক্যাটাগরি ও সাব-ক্যাটাগরি ম্যানেজমেন্ট:**\nবাটন থেকে নাম এডিট, ডিলিট বা নতুন যোগ করুন:",
             reply_markup=get_main_category_keyboard()
         )
         return
@@ -538,8 +559,45 @@ def handle_admin_inputs(message):
     if chat_id not in admin_state: return
     step = admin_state[chat_id].get('step')
 
+    # মূল ক্যাটাগরি নাম এডিট সম্পন্ন
+    if step == 'edit_main_cat_name' and message.text:
+        new_name = message.text.strip().upper()
+        old_name = admin_state[chat_id]['old_name']
+        data = load_data(force_refresh=True)
+        if old_name in data.get("categories", []):
+            idx = data["categories"].index(old_name)
+            data["categories"][idx] = new_name
+            # সাব-ক্যাটাগরি ডিকশনারি আপডেট
+            if old_name in data.get("sub_categories", {}):
+                data["sub_categories"][new_name] = data["sub_categories"].pop(old_name)
+            # ভিডিওর ক্যাটাগরি আপডেট
+            for v in data.get("videos", []):
+                if v.get("category", "").upper() == old_name.upper():
+                    v["category"] = new_name
+            save_data(data)
+            del admin_state[chat_id]
+            bot.send_message(chat_id, f"✅ **'{old_name}' পরিবর্তিত হয়ে '{new_name}' হয়েছে!**", reply_markup=get_admin_keyboard())
+        return
+
+    # সাব-ক্যাটাগরি নাম এডিট সম্পন্ন
+    elif step == 'edit_sub_cat_name' and message.text:
+        new_sub = message.text.strip().upper()
+        main_c = admin_state[chat_id]['main_cat']
+        old_sub = admin_state[chat_id]['old_sub']
+        data = load_data(force_refresh=True)
+        if main_c in data.get("sub_categories", {}) and old_sub in data["sub_categories"][main_c]:
+            idx = data["sub_categories"][main_c].index(old_sub)
+            data["sub_categories"][main_c][idx] = new_sub
+            for v in data.get("videos", []):
+                if v.get("category", "").upper() == main_c.upper() and v.get("sub_category", "").upper() == old_sub.upper():
+                    v["sub_category"] = new_sub
+            save_data(data)
+            del admin_state[chat_id]
+            bot.send_message(chat_id, f"✅ **'{old_sub}' পরিবর্তিত হয়ে '{new_sub}' হয়েছে!**", reply_markup=get_admin_keyboard())
+        return
+
     # মূল ক্যাটাগরি তৈরি
-    if step == 'add_single_category' and message.text:
+    elif step == 'add_single_category' and message.text:
         new_c = message.text.strip().upper()
         data = load_data(force_refresh=True)
         cats = data.get("categories", [])
