@@ -649,7 +649,7 @@
         let taskStartTime = 0;
         let countdownTimer = null;
 
-        const SAFE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="%2311141a"/><circle cx="320" cy="180" r="42" fill="%23e50914" fill-opacity="0.85"/><polygon points="310,165 338,180 310,195" fill="%23ffffff"/></svg>';
+        const SAFE_FALLBACK_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="%2311141a"/><circle cx="320" cy="180" r="42" fill="%23ff0055" fill-opacity="0.85"/><polygon points="310,165 338,180 310,195" fill="%23ffffff"/></svg>';
 
         function handleImageFallback(img) {
             const original = img.getAttribute("data-original");
@@ -699,7 +699,7 @@
             
             let html = '';
             cats.forEach((c) => {
-                const isActive = (activeCategory.toUpperCase() === c.toUpperCase());
+                const isActive = (activeCategory.trim().toUpperCase() === c.trim().toUpperCase());
                 html += `<div class="category-chip ${isActive ? 'active' : ''}" onclick="filterCategory('${c}')">${c}</div>`;
             });
             tabsContainer.innerHTML = html;
@@ -708,14 +708,26 @@
         function renderSubCategories() {
             const subContainer = document.getElementById("subCategoryTabs");
             const subMap = appData.sub_categories || {};
-            const subList = subMap[activeCategory.toUpperCase()] || [];
 
-            if (subList && subList.length > 0) {
+            // কেস-ইনসেনসিটিভভাবে বটের বাটন থেকে ডাটা খোঁজা
+            const activeKey = Object.keys(subMap).find(
+                k => k.trim().toUpperCase() === activeCategory.trim().toUpperCase()
+            );
+            const userSubList = activeKey ? subMap[activeKey] : [];
+
+            if (userSubList && userSubList.length > 0) {
                 subContainer.style.display = "flex";
-                activeSubCategory = subList[0];
+
+                // প্রথম বাটন হিসেবে মূল ক্যাটাগরি এবং পরে যুক্ত করা সব সাব-ক্যাটাগরি
+                const fullSubList = [activeCategory.toUpperCase(), ...userSubList.map(s => s.toUpperCase())];
+                const uniqueSubs = [...new Set(fullSubList)];
+
+                if (!uniqueSubs.includes(activeSubCategory.toUpperCase())) {
+                    activeSubCategory = uniqueSubs[0];
+                }
 
                 let html = '';
-                subList.forEach(sub => {
+                uniqueSubs.forEach(sub => {
                     const isActive = (activeSubCategory.toUpperCase() === sub.toUpperCase());
                     html += `<div class="sub-category-chip ${isActive ? 'active' : ''}" onclick="filterSubCategory('${sub}')">${sub}</div>`;
                 });
@@ -735,14 +747,15 @@
 
         function filterSubCategory(sub) {
             activeSubCategory = sub;
-            const subMap = appData.sub_categories || {};
-            const subList = subMap[activeCategory.toUpperCase()] || [];
-            let html = '';
-            subList.forEach(s => {
-                const isActive = (activeSubCategory.toUpperCase() === s.toUpperCase());
-                html += `<div class="sub-category-chip ${isActive ? 'active' : ''}" onclick="filterSubCategory('${s}')">${s}</div>`;
+            const subContainer = document.getElementById("subCategoryTabs");
+            const chips = subContainer.querySelectorAll(".sub-category-chip");
+            chips.forEach(chip => {
+                if (chip.innerText.trim().toUpperCase() === sub.trim().toUpperCase()) {
+                    chip.classList.add("active");
+                } else {
+                    chip.classList.remove("active");
+                }
             });
-            document.getElementById("subCategoryTabs").innerHTML = html;
             renderVideos();
         }
 
@@ -753,14 +766,16 @@
 
             let list = appData.videos || [];
 
+            // মূল ক্যাটাগরি ফিল্টার
             if (activeCategory) {
-                list = list.filter(v => (v.category || '').toUpperCase() === activeCategory.toUpperCase());
+                list = list.filter(v => (v.category || '').trim().toUpperCase() === activeCategory.trim().toUpperCase());
             }
 
-            if (activeSubCategory && activeSubCategory !== 'ALL') {
+            // সাব-ক্যাটাগরি ফিল্টার (প্রথম বাটন ব্যতীত স্পেসিফিক ফিল্টারিং)
+            if (activeSubCategory && activeSubCategory !== 'ALL' && activeSubCategory.toUpperCase() !== activeCategory.trim().toUpperCase()) {
                 list = list.filter(v => {
-                    const subField = (v.sub_category || '').toUpperCase();
-                    const titleText = (v.title || '').toUpperCase();
+                    const subField = (v.sub_category || '').trim().toUpperCase();
+                    const titleText = (v.title || '').trim().toUpperCase();
                     return subField === activeSubCategory.toUpperCase() || titleText.includes(activeSubCategory.toUpperCase());
                 });
             }
